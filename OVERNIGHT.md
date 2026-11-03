@@ -4,7 +4,7 @@ Status: [ ] todo, [x] done, [!] BLOCKED
 
 - [x] 1. Init repo, README, OVERNIGHT.md, tests folder
 - [x] 2. engine/setup.sh (pinned python 3.12 + ffmpeg)
-- [ ] 3. Local self-signed identity
+- [x] 3. Local self-signed identity
 - [ ] 4. Beat Thief onto the engine
 - [ ] 5. registry.json + loader
 - [ ] 6. Launcher GUI
@@ -16,3 +16,4 @@ Status: [ ] todo, [x] done, [!] BLOCKED
 
 ## Log
 - 2026-11-02 22:37:52 step 2 verified: scratch install gives python 3.12.15 + ffmpeg 9.0.2; bad SHA rejected; rerun is a no-op
+- 2026-11-02 22:38:43 step 3 verified: identity 'Steezy Studio Signing' created; two differing builds share designated requirement (cert hash 14a99bcf...); ad-hoc differs
