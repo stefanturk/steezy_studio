@@ -70,5 +70,22 @@ class T(unittest.TestCase):
         self.assertIsNone(a["version"])
 
 
+class TestUpdateAllApi(T):
+    def test_update_all_reports_each_tool_and_never_blocks(self):
+        import time
+        self.repo("a")
+        self.api._update_kw = {"refresh": lambda t: (True, ""), "build": lambda t: (True, ""), "fetch": False}
+        self.assertTrue(self.api.update_all()["started"])
+        for _ in range(100):
+            s = self.api.update_status()
+            if not s["running"]:
+                break
+            time.sleep(0.05)
+        self.assertFalse(s["running"])
+        self.assertEqual({r["id"]: r["status"] for r in s["results"]}, {"a": "up_to_date", "b": "unavailable"})
+        self.assertEqual(len(s["results"]), 2)
+        self.assertIn("isn't on this computer", s["results"][1]["message"])
+
+
 if __name__ == "__main__":
     unittest.main()

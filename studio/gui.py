@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import os
 import subprocess
+import threading
 from typing import Optional
 
-from studio import registry
+from studio import registry, updater
 
 UI_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "index.html")
 APP_NAME = "Steezy Studio"
@@ -52,6 +53,10 @@ def find_app(app_name: str, dirs=APP_DIRS) -> Optional[str]:
 class Api:
     def __init__(self, registry_path: Optional[str] = None, root: Optional[str] = None, app_dirs=APP_DIRS):
         self._registry_path, self._root, self._app_dirs = registry_path, root, app_dirs
+        self._lock = threading.Lock()
+        self._running = False
+        self._results: list = []
+        self._update_kw: dict = {}      # tests inject refresh/build here
 
     def _tools(self):
         return registry.load_tools(self._registry_path, self._root)
@@ -82,6 +87,29 @@ class Api:
                 return {"ok": False, "message": "Couldn't open %s: %s" % (t.name, e)}
             return {"ok": True, "message": ""}
         return {"ok": False, "message": "Steezy Studio doesn't know that tool."}
+
+
+    # ---- Update all: runs on a worker thread, the page polls update_status().
+    def update_all(self) -> dict:
+        with self._lock:
+            if self._running:
+                return {"started": False}
+            self._running, self._results = True, []
+        threading.Thread(target=self._do_update, daemon=True).start()
+        return {"started": True}
+
+    def _do_update(self):
+        try:
+            updater.update_all(
+                self._tools(),
+                on_result=lambda r: self._results.append(r.__dict__),
+                app_exists=lambda t: find_app(t.app, self._app_dirs) is not None,
+                **self._update_kw)
+        finally:
+            self._running = False
+
+    def update_status(self) -> dict:
+        return {"running": self._running, "results": list(self._results)}
 
 
 def main():

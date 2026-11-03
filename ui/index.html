@@ -35,7 +35,7 @@
   button:disabled { background:var(--edge); color:var(--dim); cursor:default; }
   #note { padding:0 24px 18px; color:var(--bad); font-size:13px; min-height:20px; }
 </style>
-<header><img src="logo.svg" alt=""><div><h1>Steezy Studio</h1><div class="label">Your tools, in one place</div></div></header>
+<header><img src="logo.svg" alt=""><div style="flex:1"><h1>Steezy Studio</h1><div class="label">Your tools, in one place</div></div><button id="updateAll">Update all</button></header>
 <main id="tiles"></main>
 <div id="note"></div>
 <script>
@@ -48,6 +48,7 @@
     top.append(el("span", "led"), el("span", "name", t.name));
     if (t.usable && t.behind > 0) { const d = el("span", "dot"); d.title = t.behind + " update(s) waiting"; top.append(d); }
     box.append(top);
+    if (notes[t.id]) box.append(el("div", "meta", notes[t.id]));
     if (t.usable) {
       let meta = (t.version || "?") + (t.dirty ? " · has local changes" : "");
       if (t.behind > 0) meta += " · " + t.behind + " newer";
@@ -63,6 +64,21 @@
     }
     return box;
   }
+
+  const notes = {};
+  async function updateAll() {
+    const b = $("updateAll"); b.disabled = true; b.textContent = "Updating…";
+    await pywebview.api.update_all();
+    for (;;) {
+      const s = await pywebview.api.update_status();
+      s.results.forEach((r) => { notes[r.id] = r.message; });
+      await init();
+      if (!s.running) break;
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    b.disabled = false; b.textContent = "Update all";
+  }
+  $("updateAll").onclick = updateAll;
 
   async function init() {
     const tiles = await pywebview.api.list_tools();

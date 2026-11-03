@@ -8,7 +8,7 @@ Status: [ ] todo, [x] done, [!] BLOCKED
 - [x] 4. Beat Thief onto the engine
 - [x] 5. registry.json + loader
 - [x] 6. Launcher GUI
-- [ ] 7. Update all
+- [x] 7. Update all
 - [ ] 8. Steezy Studio.app
 - [ ] 9. Other three tools on the engine
 - [ ] 10. Dry-run Update all on real folders
@@ -20,3 +20,4 @@ Status: [ ] todo, [x] done, [!] BLOCKED
 - 2026-11-02 22:42:30 step 4 verified: beat_thief setup.sh adopts engine (0 python/ffmpeg downloads in scratch HOME); tests 207/1 existing failure same as baseline; beat_fidelity identical; pre-studio tag on beat_thief; commit local only
 - 2026-11-02 22:51:00 step 5 verified: 9 registry tests pass (missing folder, no git, no access, crashing access check, malformed entries, unreadable registry); real folders all READY
 - 2026-11-02 23:14:58 step 6 verified: 15 tests pass (registry + gui Api incl. dirty/behind via real git repos); page rendered in headless Chrome with real list_tools data + fake no_access/broken tiles, screenshot reviewed. Deviation: toolkit is pywebview (family standard), not Qt, so no QT offscreen; real pywebview window is first opened in step 8. Fixed registry app name SessionSync.app
+- 2026-11-02 23:51:39 step 7 verified: 11 updater tests on throwaway bare-repo clones (up to date, behind, dirty, ahead, diverged, no network, build failure, exception, unavailable, missing app, dry run changes nothing) + Api update_all test; 33 tests total pass; Update all button rendered and reviewed (headless Chrome, mocked status)
