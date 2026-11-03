@@ -1,0 +1,12 @@
+{
+  "tools": [
+    {"id": "beat_thief", "name": "Beat Thief", "repo": "https://github.com/stefanturk/beat_thief.git",
+     "folder": "beat_thief", "build": ["./make_app.sh"], "app": "Beat Thief.app", "platforms": ["mac", "windows"]},
+    {"id": "ableton_loader", "name": "Ableton Loader", "repo": "https://github.com/stefanturk/ableton_loader.git",
+     "folder": "ableton_loader", "build": ["./make_app.sh"], "app": "Ableton Loader.app", "platforms": ["mac", "windows"]},
+    {"id": "session_sync", "name": "Session Sync", "repo": "https://github.com/stefanturk/session_sync.git",
+     "folder": "session_sync", "build": ["./scripts/build_app.sh"], "app": "Session Sync.app", "platforms": ["mac", "windows"]},
+    {"id": "movie_maker", "name": "Movie Maker", "repo": "https://github.com/stefanturk/movie_maker.git",
+     "folder": "movie_maker", "build": ["./make_app.sh"], "app": "Movie Maker.app", "platforms": ["mac"]}
+  ]
+}
