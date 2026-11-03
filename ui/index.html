@@ -1,0 +1,72 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steezy Studio</title>
+<!--
+  Steezy Studio's face. Talks to gui.py's Api through pywebview.api. Styled to
+  sit with the other tools: dark panel, amber accent, silkscreen labels, a
+  state LED per tool. Tool names and messages are set with textContent only.
+-->
+<style>
+  :root { --panel:#16171b; --raised:#1e2026; --edge:#2c2f37; --ink:#e9e7e2; --dim:#8b8d95;
+          --amber:#f2b84b; --good:#5fd39a; --bad:#ff6b5e; --radius:8px;
+          --ui:"Avenir Next","Avenir",-apple-system,BlinkMacSystemFont,sans-serif; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body { background:var(--panel); color:var(--ink); font:14px/1.45 var(--ui); -webkit-font-smoothing:antialiased;
+         user-select:none; cursor:default; display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; gap:14px; padding:18px 24px 16px; border-bottom:1px solid var(--edge); }
+  header img { width:38px; height:38px; }
+  h1 { margin:0; font-size:18px; font-weight:600; letter-spacing:.02em; }
+  .label { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); }
+  main { padding:22px 24px; display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+  .tile { background:var(--raised); border:1px solid var(--edge); border-radius:var(--radius); padding:16px 18px;
+          display:flex; flex-direction:column; gap:10px; }
+  .tile.off { opacity:.5; }
+  .top { display:flex; align-items:center; gap:10px; }
+  .led { width:9px; height:9px; border-radius:50%; background:var(--dim); flex:none; }
+  .ready .led { background:var(--good); box-shadow:0 0 6px var(--good); }
+  .name { font-size:16px; font-weight:600; flex:1; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--amber); }
+  .meta { font-size:12px; color:var(--dim); min-height:18px; }
+  .msg { font-size:13px; color:var(--ink); min-height:36px; }
+  button { font:inherit; font-size:13px; color:var(--panel); background:var(--amber); border:0; border-radius:6px;
+           padding:7px 16px; cursor:pointer; align-self:flex-start; font-weight:600; }
+  button:disabled { background:var(--edge); color:var(--dim); cursor:default; }
+  #note { padding:0 24px 18px; color:var(--bad); font-size:13px; min-height:20px; }
+</style>
+<header><img src="logo.svg" alt=""><div><h1>Steezy Studio</h1><div class="label">Your tools, in one place</div></div></header>
+<main id="tiles"></main>
+<div id="note"></div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function tile(t) {
+    const box = el("div", "tile " + (t.usable ? "ready" : "off"));
+    const top = el("div", "top");
+    top.append(el("span", "led"), el("span", "name", t.name));
+    if (t.usable && t.behind > 0) { const d = el("span", "dot"); d.title = t.behind + " update(s) waiting"; top.append(d); }
+    box.append(top);
+    if (t.usable) {
+      let meta = (t.version || "?") + (t.dirty ? " · has local changes" : "");
+      if (t.behind > 0) meta += " · " + t.behind + " newer";
+      box.append(el("div", "meta", meta));
+      const b = el("button", null, "Open");
+      b.disabled = !t.app;
+      if (!t.app) box.append(el("div", "msg", "Not built yet."));
+      b.onclick = async () => { const r = await pywebview.api.open_tool(t.id); $("note").textContent = r.ok ? "" : r.message; };
+      box.append(b);
+    } else {
+      box.append(el("div", "msg", t.message));
+      const b = el("button", null, "Open"); b.disabled = true; box.append(b);
+    }
+    return box;
+  }
+
+  async function init() {
+    const tiles = await pywebview.api.list_tools();
+    $("tiles").replaceChildren(...tiles.map(tile));
+  }
+  if (window.pywebview && window.pywebview.api) init(); else window.addEventListener("pywebviewready", init);
+</script>

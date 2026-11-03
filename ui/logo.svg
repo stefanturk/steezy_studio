@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    Steezy Studio's mark, in the same family as Beat Thief, the Ableton Loader
+    and Movie Maker: a near-black rounded plate with a white rim and fine
+    grooves. The label carries a 2x2 grid of dots, one for each tool in the
+    studio.
+  -->
+  <defs>
+    <linearGradient id="sheen" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="53" y="53" width="918" height="918" rx="200" fill="#0C0D10"/>
+  <rect x="53" y="53" width="918" height="918" rx="200" fill="none" stroke="#FFFFFF" stroke-width="26"/>
+  <g fill="none" stroke="#22232A">
+    <rect x="119" y="119" width="786" height="786" rx="134" stroke-width="9"/>
+    <rect x="171" y="171" width="682" height="682" rx="82" stroke-width="5" opacity="0.9"/>
+    <rect x="223" y="223" width="578" height="578" rx="30" stroke-width="9"/>
+    <rect x="275" y="275" width="474" height="474" rx="30" stroke-width="5" opacity="0.9"/>
+  </g>
+  <rect x="66" y="66" width="892" height="892" rx="187" fill="url(#sheen)"/>
+  <circle cx="512" cy="512" r="232" fill="#F2B84B"/>
+  <g fill="#0C0D10">
+    <circle cx="440" cy="440" r="46"/>
+    <circle cx="584" cy="440" r="46"/>
+    <circle cx="440" cy="584" r="46"/>
+    <circle cx="584" cy="584" r="46"/>
+  </g>
+  <circle cx="512" cy="512" r="232" fill="none" stroke="#0C0D10" stroke-opacity="0.25" stroke-width="6"/>
+</svg>
