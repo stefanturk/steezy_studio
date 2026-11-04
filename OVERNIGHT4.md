@@ -15,7 +15,7 @@ two failures = BLOCKED with reason. When done: write MORNING4.md, then CronDelet
 - [x] 8 Beat Thief + Session Sync Windows guards (macOS baselines identical)
 - [x] 9 .github/workflows/windows.yml (YAML-validated)
 - [x] 10 Windows rows enabled in Share panel
-- [ ] 11 memory update, session_sync README "225 passing" fix, MORNING4.md, CronDelete
+- [x] 11 memory update, session_sync README "225 passing" fix, MORNING4.md, CronDelete
 
 ## Log
 - tags pre-session4 set; Studio baseline 33 tests (system python3)
