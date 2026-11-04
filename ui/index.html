@@ -117,7 +117,7 @@
     if (badge) r.append(el("span", "badge", badge));
     const seg = el("span", "seg");
     const mac = el("button", null, "Copy for Mac"); mac.disabled = !cmds.mac; mac.onclick = () => copy(cmds.mac);
-    const win = el("button", null, winReady && cmds.windows ? "Copy for Windows" : "Windows: soon");
+    const win = el("button", null, winReady && cmds.windows ? "Windows (beta)" : "Windows: soon");
     win.disabled = !(winReady && cmds.windows); if (!win.disabled) win.onclick = () => copy(cmds.windows);
     seg.append(mac, win); r.append(seg);
     return r;

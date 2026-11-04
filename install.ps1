@@ -115,6 +115,10 @@ foreach ($id in $want) {
         & $Py -m pip install --quiet --prefer-binary -r $req
         if ($LASTEXITCODE -ne 0) { Note "Some packages for $id didn't install; press Update all in the Studio to retry."; $Failed += $id }
     }
+    if ((Test-Path $Py) -and -not (Test-Path $req) -and (Test-Path (Join-Path $dir 'pyproject.toml'))) {
+        & $Py -m pip install --quiet --prefer-binary -e $dir
+        if ($LASTEXITCODE -ne 0) { Note "Some packages for $id didn't install; press Update all in the Studio to retry."; $Failed += $id }
+    }
     if ($t.windows_run) {
         $pyw = Join-Path $Engine 'python\pythonw.exe'
         New-Shortcut $t.name $pyw (($t.windows_run) -join ' ') $dir

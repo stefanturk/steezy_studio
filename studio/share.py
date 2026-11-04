@@ -50,5 +50,5 @@ def share_options(tools: list) -> dict:
     }
 
 
-# Flipped to True once install.ps1 exists and is tested (Session 5).
-WINDOWS_READY = False
+# Windows scripts exist but have never run on a real PC: the panel labels them beta.
+WINDOWS_READY = True

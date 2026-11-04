@@ -1,0 +1,36 @@
+name: windows
+on: [push, pull_request]
+jobs:
+  studio:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: python -m pip install pytest pywebview
+      - name: Studio tests (platform-neutral)
+        run: python -m pytest -q tests --deselect tests/test_install.py
+      - name: PowerShell scripts parse
+        shell: pwsh
+        run: |
+          foreach ($f in 'install.ps1', 'engine/setup.ps1') {
+            $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$errs)
+            if ($errs) { $errs | ForEach-Object { Write-Error $_.Message }; exit 1 }
+          }
+      - name: Engine installs and runs
+        shell: pwsh
+        env: { STEEZY_ENGINE_DIR: '${{ runner.temp }}\engine' }
+        run: |
+          ./engine/setup.ps1
+          & "$env:STEEZY_ENGINE_DIR\python\python.exe" --version
+          & "$env:STEEZY_ENGINE_DIR\bin\ffmpeg.exe" -version | Select-Object -First 1
+          ./engine/setup.ps1   # second run is a no-op
+      - name: Installer end to end (Studio only, no shortcuts)
+        shell: pwsh
+        env:
+          STEEZY_ENGINE_DIR: '${{ runner.temp }}\engine'
+          STEEZY_INSTALL_DEST: '${{ runner.temp }}\studio'
+          STEEZY_TOOLS_DIR: '${{ runner.temp }}\tools'
+          STEEZY_SKIP_SHORTCUTS: '1'
+        run: ./install.ps1 beat_thief session_sync

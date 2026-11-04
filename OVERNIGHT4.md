@@ -12,9 +12,9 @@ two failures = BLOCKED with reason. When done: write MORNING4.md, then CronDelet
 - [x] 5 engine/setup.ps1
 - [x] 6 install.ps1
 - [x] 7 Windows portability of studio/ (mock sys.platform tests)
-- [ ] 8 Beat Thief + Session Sync Windows guards (macOS baselines identical)
-- [ ] 9 .github/workflows/windows.yml (YAML-validated)
-- [ ] 10 Windows rows enabled in Share panel
+- [x] 8 Beat Thief + Session Sync Windows guards (macOS baselines identical)
+- [x] 9 .github/workflows/windows.yml (YAML-validated)
+- [x] 10 Windows rows enabled in Share panel
 - [ ] 11 memory update, session_sync README "225 passing" fix, MORNING4.md, CronDelete
 
 ## Log
@@ -25,3 +25,4 @@ two failures = BLOCKED with reason. When done: write MORNING4.md, then CronDelet
 - step 4 done: Share panel (Chrome render reviewed), copy_text/invite_friend API, 53 tests. Session 4 COMPLETE
 - steps 5-6 written: setup.ps1 (python sha from upstream SHA256SUMS; ffmpeg gyan 2026-11-02 sha verified by me downloading it), install.ps1. NOT executed: no pwsh on this Mac. windows_run registry field supported; tools fill it in step 8
 - step 7 done: platform_paths, windows_run/open/build handling, 58 tests
+- steps 8-10 done: Beat Thief guards (beat_thief ded392d, 910 tests vs 905), Session Sync needed no code change (260 = baseline), windows.yml (YAML valid, unrun), Windows buttons live labelled beta, ableton_loader windows claim removed
