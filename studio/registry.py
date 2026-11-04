@@ -14,6 +14,21 @@ from typing import Callable, Optional
 DEFAULT_REGISTRY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "registry.json")
 DEFAULT_ROOT = os.path.expanduser("~/Desktop/Python")
 
+
+def configured_root() -> str:
+    """Where tools live: the folder the friend installer wrote to `tools_dir`
+    beside the engine, else Stefan's ~/Desktop/Python."""
+    engine = os.environ.get("STEEZY_ENGINE_DIR") or os.path.expanduser(
+        "~/Library/Application Support/Steezy Studio/engine")
+    try:
+        with open(os.path.join(os.path.dirname(engine), "tools_dir")) as f:
+            p = f.read().strip()
+        if p:
+            return p
+    except OSError:
+        pass
+    return DEFAULT_ROOT
+
 READY = "ready"
 NOT_INSTALLED = "not_installed"      # folder missing
 NOT_GIT = "not_git"                  # folder there, but not a git checkout
@@ -58,7 +73,7 @@ def load_tools(registry_path: Optional[str] = None, root: Optional[str] = None,
     check that itself fails is treated as "can't tell", not "no access".
     """
     registry_path = registry_path or DEFAULT_REGISTRY
-    root = os.path.expanduser(root or os.environ.get("STEEZY_TOOLS_DIR") or DEFAULT_ROOT)
+    root = os.path.expanduser(root or os.environ.get("STEEZY_TOOLS_DIR") or configured_root())
     try:
         with open(registry_path) as f:
             entries = json.load(f)["tools"]
