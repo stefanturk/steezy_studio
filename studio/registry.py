@@ -11,6 +11,8 @@ import os
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from studio import platform_paths
+
 DEFAULT_REGISTRY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "registry.json")
 DEFAULT_ROOT = os.path.expanduser("~/Desktop/Python")
 
@@ -18,8 +20,7 @@ DEFAULT_ROOT = os.path.expanduser("~/Desktop/Python")
 def configured_root() -> str:
     """Where tools live: the folder the friend installer wrote to `tools_dir`
     beside the engine, else Stefan's ~/Desktop/Python."""
-    engine = os.environ.get("STEEZY_ENGINE_DIR") or os.path.expanduser(
-        "~/Library/Application Support/Steezy Studio/engine")
+    engine = platform_paths.engine_dir()
     try:
         with open(os.path.join(os.path.dirname(engine), "tools_dir")) as f:
             p = f.read().strip()
@@ -49,6 +50,7 @@ class Tool:
     app: str
     platforms: list
     private: bool = False
+    windows_run: list = None      # argv after pythonw to start the tool on Windows
     state: str = READY
     message: str = ""
 
@@ -102,7 +104,8 @@ def load_tools(registry_path: Optional[str] = None, root: Optional[str] = None,
         seen.add(raw["id"])
         t = Tool(id=raw["id"], name=raw["name"], repo=raw["repo"], folder=raw["folder"],
                  path=os.path.join(root, raw["folder"]), build=build, app=raw["app"],
-                 platforms=list(raw.get("platforms") or ["mac"]), private=bool(raw.get("private", False)))
+                 platforms=list(raw.get("platforms") or ["mac"]), private=bool(raw.get("private", False)),
+                 windows_run=list(raw.get("windows_run") or []))
         if not os.path.isdir(t.path):
             t.state = NOT_INSTALLED
             t.message = "%s isn't on this computer yet." % t.name

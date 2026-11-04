@@ -16,7 +16,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from studio import registry
+from studio import platform_paths, registry
 
 UPDATED = "updated"
 UP_TO_DATE = "up_to_date"
@@ -54,8 +54,7 @@ def _git(path: str, *args: str, timeout: int = 60):
 def engine_python() -> Optional[str]:
     p = os.environ.get("STEEZY_PYTHON")
     if not p:
-        base = os.environ.get("STEEZY_ENGINE_DIR") or os.path.expanduser("~/Library/Application Support/Steezy Studio/engine")
-        p = os.path.join(base, "python", "bin", "python3")
+        p = platform_paths.python_in(platform_paths.engine_dir())
     return p if os.access(p, os.X_OK) else None
 
 
@@ -71,6 +70,8 @@ def default_refresh(tool: registry.Tool) -> tuple:
 
 
 def default_build(tool: registry.Tool) -> tuple:
+    if platform_paths.is_windows():
+        return True, "nothing to build on Windows"      # tools run from source via their shortcut
     env = dict(os.environ)
     py = engine_python()
     if py:

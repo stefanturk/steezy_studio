@@ -16,7 +16,7 @@ from typing import Optional
 
 import sys
 
-from studio import invite, registry, share, updater
+from studio import invite, platform_paths, registry, share, updater
 
 UI_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "index.html")
 APP_NAME = "Steezy Studio"
@@ -52,6 +52,14 @@ def find_app(app_name: str, dirs=APP_DIRS) -> Optional[str]:
     return None
 
 
+def app_for(t, app_dirs=APP_DIRS) -> Optional[str]:
+    """Where the tool can be started from: the built .app on a Mac; on Windows the
+    source folder, if the registry says how to run it."""
+    if platform_paths.is_windows():
+        return t.path if t.windows_run else None
+    return find_app(t.app, app_dirs)
+
+
 class Api:
     def __init__(self, registry_path: Optional[str] = None, root: Optional[str] = None, app_dirs=APP_DIRS):
         self._registry_path, self._root, self._app_dirs = registry_path, root, app_dirs
@@ -69,7 +77,7 @@ class Api:
             item = {"id": t.id, "name": t.name, "state": t.state, "message": t.message,
                     "usable": t.usable, "version": None, "dirty": False, "behind": None, "app": None}
             if t.usable:
-                item.update(version_of(t.path), app=find_app(t.app, self._app_dirs))
+                item.update(version_of(t.path), app=app_for(t, self._app_dirs))
                 item["version"] = item.pop("sha")
             out.append(item)
         return out
@@ -80,11 +88,15 @@ class Api:
                 continue
             if not t.usable:
                 return {"ok": False, "message": t.message}
-            app = find_app(t.app, self._app_dirs)
+            app = app_for(t, self._app_dirs)
             if not app:
                 return {"ok": False, "message": "%s hasn't been built yet. Press Update to build it." % t.name}
             try:
-                subprocess.Popen(["open", app])
+                if platform_paths.is_windows():
+                    py = platform_paths.python_in(platform_paths.engine_dir(), windowed=True)
+                    subprocess.Popen([py, *t.windows_run], cwd=t.path)
+                else:
+                    subprocess.Popen(["open", app])
             except OSError as e:
                 return {"ok": False, "message": "Couldn't open %s: %s" % (t.name, e)}
             return {"ok": True, "message": ""}
@@ -123,7 +135,7 @@ class Api:
             updater.update_all(
                 self._tools(),
                 on_result=lambda r: self._results.append(r.__dict__),
-                app_exists=lambda t: find_app(t.app, self._app_dirs) is not None,
+                app_exists=lambda t: app_for(t, self._app_dirs) is not None,
                 **self._update_kw)
         finally:
             self._running = False
