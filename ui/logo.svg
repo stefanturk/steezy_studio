@@ -44,8 +44,8 @@
     <circle cx="760" cy="322" r="38" fill="#18E0FF" fill-opacity="0.25"/>
     <!-- cabinet -->
     <rect x="190" y="450" width="644" height="400" rx="28" fill="#171226" stroke="#8C5CFF" stroke-width="14"/>
-    <circle cx="512" cy="650" r="150" fill="#0C0D10" stroke="#C9A8FF" stroke-width="10"/>
-    <circle cx="512" cy="650" r="126" fill="url(#cone)"/>
-    <circle cx="512" cy="650" r="44" fill="#F3EAFF"/>
+    <circle cx="476" cy="650" r="150" fill="#0C0D10" stroke="#C9A8FF" stroke-width="10"/>
+    <circle cx="476" cy="650" r="126" fill="url(#cone)"/>
+    <circle cx="476" cy="650" r="44" fill="#F3EAFF"/>
   </g>
 </svg>
