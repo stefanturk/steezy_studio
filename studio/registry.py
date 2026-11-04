@@ -33,6 +33,7 @@ class Tool:
     build: list
     app: str
     platforms: list
+    private: bool = False
     state: str = READY
     message: str = ""
 
@@ -86,7 +87,7 @@ def load_tools(registry_path: Optional[str] = None, root: Optional[str] = None,
         seen.add(raw["id"])
         t = Tool(id=raw["id"], name=raw["name"], repo=raw["repo"], folder=raw["folder"],
                  path=os.path.join(root, raw["folder"]), build=build, app=raw["app"],
-                 platforms=list(raw.get("platforms") or ["mac"]))
+                 platforms=list(raw.get("platforms") or ["mac"]), private=bool(raw.get("private", False)))
         if not os.path.isdir(t.path):
             t.state = NOT_INSTALLED
             t.message = "%s isn't on this computer yet." % t.name
