@@ -1,15 +1,14 @@
 # Morning report: Steezy Studio, sessions 1-3
 
 Everything in the plan ran; steps 1-11 are ticked in OVERNIGHT.md and nothing is BLOCKED.
-`stefanturk/steezy_studio` (private) is pushed. **The four tool repos are NOT pushed**; each has
-one local commit from tonight, so Update all will show them as "ahead" until you push them.
+`stefanturk/steezy_studio` (private) is pushed. The four tool repos have since been pushed.
 
 ## What you have now
 - **Steezy Studio.app** in `~/Applications` (signed with a local certificate; pin it to the Dock).
   A tile per tool with version, Open, an amber dot when updates are waiting, and **Update all**.
 - **The engine** at `~/Library/Application Support/Steezy Studio/engine`: Python 3.12.15 + ffmpeg,
   SHA-pinned, no Homebrew, no password.
-- **Local commits (not pushed):**
+- **Tool commits (since pushed):**
   - beat_thief `5a7bc2b` borrows the engine on a fresh install
   - ableton_loader `3c08b8a`, movie_maker `4be10f4`, session_sync `e6f447b` build on the engine when it is there
   - Every tool has a `pre-studio` tag to roll back to.
