@@ -89,3 +89,37 @@ class TestUpdateAllApi(T):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ShareApi(unittest.TestCase):
+    def setUp(self):
+        self.api = gui.Api(root="/nonexistent")
+
+    def test_share_options_payload(self):
+        o = self.api.share_options()
+        self.assertIn("install.sh", o["studio"]["mac"])
+        self.assertEqual(len(o["tools"]), 4)
+        self.assertIn(False, [t["private"] for t in o["tools"]])
+
+    def test_copy_text_uses_pbcopy(self):
+        calls = []
+        orig = gui.subprocess.run
+        gui.subprocess.run = lambda cmd, **kw: calls.append((cmd, kw["input"]))
+        try:
+            self.assertEqual(self.api.copy_text("hello"), {"ok": True})
+        finally:
+            gui.subprocess.run = orig
+        self.assertEqual(calls, [(["pbcopy"], "hello")])
+
+    def test_copy_text_failure_is_not_an_error(self):
+        orig = gui.subprocess.run
+        def boom(*a, **k): raise OSError("no pbcopy")
+        gui.subprocess.run = boom
+        try:
+            self.assertEqual(self.api.copy_text("x"), {"ok": False})
+        finally:
+            gui.subprocess.run = orig
+
+    def test_invite_friend_rejects_bad_name_without_calling_gh(self):
+        res = self.api.invite_friend("bad name!")
+        self.assertTrue(res and not any(r["ok"] for r in res))

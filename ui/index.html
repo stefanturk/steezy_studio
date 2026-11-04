@@ -33,11 +33,34 @@
   button { font:inherit; font-size:13px; color:var(--panel); background:var(--amber); border:0; border-radius:6px;
            padding:7px 16px; cursor:pointer; align-self:flex-start; font-weight:600; }
   button:disabled { background:var(--edge); color:var(--dim); cursor:default; }
+  button.ghost { background:transparent; color:var(--amber); border:1px solid var(--amber); margin-right:8px; }
+  #share { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; }
+  #share.open { display:flex; }
+  #sharebox { background:var(--raised); border:1px solid var(--edge); border-radius:var(--radius); padding:20px 22px;
+              width:min(620px,92vw); max-height:86vh; overflow:auto; display:flex; flex-direction:column; gap:12px; user-select:text; }
+  .row { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--edge); }
+  .row .name { font-size:14px; flex:1; }
+  .badge { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); border:1px solid var(--edge); border-radius:4px; padding:1px 6px; }
+  .seg { display:flex; gap:6px; }
+  .seg button { align-self:center; padding:5px 12px; }
+  code { display:block; background:var(--panel); border:1px solid var(--edge); border-radius:6px; padding:8px 10px;
+         font:11px/1.4 ui-monospace,Menlo,monospace; color:var(--dim); word-break:break-all; }
+  #inviteRow { display:flex; gap:8px; align-items:center; }
+  #inviteRow input { flex:1; background:var(--panel); color:var(--ink); border:1px solid var(--edge); border-radius:6px; padding:6px 9px; font:inherit; }
+  #toast { color:var(--good); font-size:12px; min-height:16px; }
   #note { padding:0 24px 18px; color:var(--bad); font-size:13px; min-height:20px; }
 </style>
-<header><img src="logo.svg" alt=""><div style="flex:1"><h1>Steezy Studio</h1><div class="label">Your tools, in one place</div></div><button id="updateAll">Update all</button></header>
+<header><img src="logo.svg" alt=""><div style="flex:1"><h1>Steezy Studio</h1><div class="label">Your tools, in one place</div></div><button id="shareBtn" class="ghost">Share with friends</button><button id="updateAll">Update all</button></header>
 <main id="tiles"></main>
 <div id="note"></div>
+<div id="share"><div id="sharebox">
+  <div style="display:flex;align-items:center"><div style="flex:1"><h1>Share with friends</h1>
+    <div class="label">Paste into Terminal (Mac) or PowerShell (Windows)</div></div><button id="shareClose" class="ghost" style="margin:0">Close</button></div>
+  <div id="shareRows"></div>
+  <div class="label">Invite to the private tools</div>
+  <div id="inviteRow"><input id="inviteUser" placeholder="friend's GitHub username" autocomplete="off"><button id="inviteBtn">Invite</button></div>
+  <div id="toast"></div>
+</div></div>
 <script>
   const $ = (id) => document.getElementById(id);
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -79,6 +102,42 @@
     b.disabled = false; b.textContent = "Update all";
   }
   $("updateAll").onclick = updateAll;
+
+  // ---- Share with friends
+  let shareData = null;
+  async function copy(text) {
+    let ok = false;
+    try { ok = (await pywebview.api.copy_text(text)).ok; } catch (e) {}
+    if (!ok) { try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {} }
+    $("toast").textContent = ok ? "Copied. Paste it into Terminal." : "Couldn't copy - select the text below and copy it.";
+  }
+  function shareRow(name, cmds, badge, winReady) {
+    const r = el("div", "row");
+    r.append(el("span", "name", name));
+    if (badge) r.append(el("span", "badge", badge));
+    const seg = el("span", "seg");
+    const mac = el("button", null, "Copy for Mac"); mac.disabled = !cmds.mac; mac.onclick = () => copy(cmds.mac);
+    const win = el("button", null, winReady && cmds.windows ? "Copy for Windows" : "Windows: soon");
+    win.disabled = !(winReady && cmds.windows); if (!win.disabled) win.onclick = () => copy(cmds.windows);
+    seg.append(mac, win); r.append(seg);
+    return r;
+  }
+  async function openShare() {
+    shareData = await pywebview.api.share_options();
+    const rows = [shareRow("Whole Steezy Studio", shareData.studio, null, shareData.windows_ready)];
+    shareData.tools.forEach((t) => rows.push(shareRow(t.name, t.commands, t.private ? "needs invite" : null, shareData.windows_ready)));
+    $("shareRows").replaceChildren(...rows);
+    $("toast").textContent = ""; $("share").classList.add("open");
+  }
+  $("shareBtn").onclick = openShare;
+  $("shareClose").onclick = () => $("share").classList.remove("open");
+  $("inviteBtn").onclick = async () => {
+    const u = $("inviteUser").value.trim();
+    if (!u) return;
+    if (!confirm("Send GitHub invites for the private tools to '" + u + "'?")) return;
+    const res = await pywebview.api.invite_friend(u);
+    $("toast").textContent = res.length ? res.map((r) => r.message).join(" ") : "No private tools to invite to.";
+  };
 
   async function init() {
     const tiles = await pywebview.api.list_tools();

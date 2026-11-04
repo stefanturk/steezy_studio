@@ -14,7 +14,9 @@ import subprocess
 import threading
 from typing import Optional
 
-from studio import registry, updater
+import sys
+
+from studio import invite, registry, share, updater
 
 UI_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "index.html")
 APP_NAME = "Steezy Studio"
@@ -88,6 +90,24 @@ class Api:
             return {"ok": True, "message": ""}
         return {"ok": False, "message": "Steezy Studio doesn't know that tool."}
 
+
+    # ---- Share with friends
+    def share_options(self) -> dict:
+        return share.share_options(self._tools())
+
+    def copy_text(self, text: str) -> dict:
+        """Put text on the clipboard. The page falls back to its own copy if this says no."""
+        cmd = ["clip"] if sys.platform.startswith("win") else ["pbcopy"]
+        try:
+            subprocess.run(cmd, input=str(text), text=True, timeout=5, check=True)
+        except (OSError, subprocess.SubprocessError):
+            return {"ok": False}
+        return {"ok": True}
+
+    def invite_friend(self, username: str, tool_ids=None) -> list:
+        """Really sends GitHub invites (the page asks Stefan to confirm first)."""
+        return invite.invite(str(username or "").strip(), list(tool_ids or []) or None, send=True,
+                             tools=self._tools())
 
     # ---- Update all: runs on a worker thread, the page polls update_status().
     def update_all(self) -> dict:
