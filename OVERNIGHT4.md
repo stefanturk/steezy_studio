@@ -7,7 +7,7 @@ two failures = BLOCKED with reason. When done: write MORNING4.md, then CronDelet
 - [x] 0 safety tag `pre-session4` on steezy_studio, beat_thief, session_sync; record baseline test counts
 - [x] 1 registry `install` info + `studio/share.py` command generation (+ tests)
 - [x] 2 `install.sh` (+ scratch-HOME test with local clones, idempotent, private-clone failure tolerated)
-- [ ] 3 `studio/invite.py` (+ tests, dry-run only)
+- [x] 3 `studio/invite.py` (+ tests, dry-run only)
 - [ ] 4 Share with friends panel in gui.py + index.html (+ API tests, Chrome render checked)
 - [ ] 5 engine/setup.ps1
 - [ ] 6 install.ps1
@@ -21,3 +21,4 @@ two failures = BLOCKED with reason. When done: write MORNING4.md, then CronDelet
 - tags pre-session4 set; Studio baseline 33 tests (system python3)
 - step 1 done: share.py, private flag; 38 tests
 - step 2 done: install.sh + 6 scratch-HOME tests; 44 tests. gh fetch path (pinned v2.103.3 + release checksums) written but not run live
+- step 3 done: invite.py, 49 tests
