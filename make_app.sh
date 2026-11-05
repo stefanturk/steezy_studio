@@ -49,6 +49,9 @@ if [ "$DEST" != "/Applications" ] && [ -e "/Applications/Steezy Studio.app" ]; t
     rm -rf "/Applications/Steezy Studio.app"
 fi
 
+# Remember which clone this app came from, so the app can update itself from it.
+mkdir -p "$(dirname "$ENGINE")" && printf '%s\n' "$REPO" > "$(dirname "$ENGINE")/studio_dir"
+
 mkdir -p "$DEST"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"

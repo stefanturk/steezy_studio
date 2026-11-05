@@ -124,11 +124,21 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
     return r(UPDATED, "Updated and rebuilt." if behind else "Built.")
 
 
+def fetch_quietly(tools: list) -> None:
+    """git fetch each usable tool so "newer" counts are real. Never raises."""
+    for t in tools:
+        if t.usable:
+            _git(t.path, "fetch", "--quiet")
+
+
 def update_all(tools: list, on_result: Optional[Callable[[Result], None]] = None, **kw) -> list:
     results = []
-    for t in tools:
+    studio = kw.pop("studio", None)
+    for t in list(tools) + ([studio] if studio else []):
         try:
             res = update_tool(t, **kw)
+            if t is studio and res.status == UPDATED:
+                res.message = "Steezy Studio itself was updated. Quit and reopen it to use the new version."
         except Exception as e:  # last line of defence: one tool never stops the rest
             res = Result(t.id, t.name, BUILD_FAILED, "Unexpected problem: %s" % e)
         results.append(res)

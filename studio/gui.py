@@ -67,6 +67,7 @@ class Api:
         self._running = False
         self._results: list = []
         self._update_kw: dict = {}      # tests inject refresh/build here
+        self._studio_tool = None        # tests inject the Studio's own clone here
 
     def _tools(self):
         return registry.load_tools(self._registry_path, self._root)
@@ -81,6 +82,23 @@ class Api:
                 item["version"] = item.pop("sha")
             out.append(item)
         return out
+
+    def check_updates(self) -> dict:
+        """Fetch every tool and the Studio itself (slow, so the page calls this
+        after it has drawn), then say how far behind the Studio is."""
+        st = self._studio()
+        updater.fetch_quietly(self._tools() + ([st] if st else []))
+        return self.studio_status()
+
+    def _studio(self):
+        return self._studio_tool or registry.studio_tool()
+
+    def studio_status(self) -> dict:
+        st = self._studio()
+        if not st:
+            return {"known": False, "behind": None}
+        v = version_of(st.path)
+        return {"known": True, "behind": v["behind"], "dirty": v["dirty"]}
 
     def open_tool(self, tool_id: str) -> dict:
         for t in self._tools():
@@ -135,7 +153,8 @@ class Api:
             updater.update_all(
                 self._tools(),
                 on_result=lambda r: self._results.append(r.__dict__),
-                app_exists=lambda t: app_for(t, self._app_dirs) is not None,
+                app_exists=lambda t: t.id == "studio" or app_for(t, self._app_dirs) is not None,
+                studio=self._studio(),
                 **self._update_kw)
         finally:
             self._running = False

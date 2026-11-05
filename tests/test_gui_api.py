@@ -1,6 +1,7 @@
 import json, os, subprocess, sys, tempfile, unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from studio import gui
+from unittest import mock
+from studio import gui, registry
 
 
 def git(path, *a):
@@ -85,6 +86,61 @@ class TestUpdateAllApi(T):
         self.assertEqual({r["id"]: r["status"] for r in s["results"]}, {"a": "up_to_date", "b": "unavailable"})
         self.assertEqual(len(s["results"]), 2)
         self.assertIn("isn't on this computer", s["results"][1]["message"])
+
+    def _studio_with_upstream(self):
+        """A Studio clone that is one commit behind its upstream (already fetched)."""
+        p = os.path.join(self.d, "studio"); os.makedirs(p)
+        git(p, "init", "-q", "-b", "main")
+        open(os.path.join(p, "f"), "w").write("1")
+        git(p, "add", "."); git(p, "commit", "-q", "-m", "one")
+        up = os.path.join(self.d, "studio_up")
+        subprocess.run(["git", "clone", "-q", p, up], check=True)
+        git(p, "remote", "add", "origin", up); git(p, "fetch", "-q"); git(p, "branch", "-q", "-u", "origin/main")
+        return p, up
+
+    def test_check_updates_fetches_so_behind_becomes_real(self):
+        p, up = self._studio_with_upstream()
+        self.api._studio_tool = registry.studio_tool(p)
+        self.assertEqual(self.api.studio_status()["behind"], 0)
+        git(up, "commit", "-q", "--allow-empty", "-m", "two")      # new upstream commit, not yet fetched
+        self.assertEqual(self.api.studio_status()["behind"], 0)
+        self.assertEqual(self.api.check_updates()["behind"], 1)
+
+    def test_studio_without_a_known_clone_is_just_unknown(self):
+        with mock.patch.object(registry, "studio_path", return_value=None):
+            self.assertEqual(self.api.studio_status(), {"known": False, "behind": None})
+            self.assertEqual(self.api.check_updates(), {"known": False, "behind": None})
+
+    def test_update_all_pulls_the_studio_itself_last_and_says_restart(self):
+        import time
+        p, up = self._studio_with_upstream()
+        git(up, "commit", "-q", "--allow-empty", "-m", "two")
+        self.api._studio_tool = registry.studio_tool(p)
+        self.api._update_kw = {"refresh": lambda t: (True, ""), "build": lambda t: (True, "")}
+        self.api.update_all()
+        for _ in range(200):
+            s = self.api.update_status()
+            if not s["running"]:
+                break
+            time.sleep(0.05)
+        self.assertEqual(s["results"][-1]["id"], "studio")
+        self.assertEqual(s["results"][-1]["status"], "updated")
+        self.assertIn("reopen", s["results"][-1]["message"])
+        self.assertEqual(self.api.studio_status()["behind"], 0)
+
+    def test_studio_path_on_mac_reads_the_file_make_app_writes(self):
+        clone = os.path.join(self.d, "clone"); os.makedirs(os.path.join(clone, ".git"))
+        eng = os.path.join(self.d, "Steezy Studio", "engine"); os.makedirs(eng)
+        open(os.path.join(self.d, "Steezy Studio", "studio_dir"), "w").write(clone + "\n")
+        with mock.patch.dict(os.environ, {"STEEZY_ENGINE_DIR": eng}), mock.patch.object(sys, "platform", "darwin"):
+            self.assertEqual(registry.studio_path(), clone)
+        os.remove(os.path.join(self.d, "Steezy Studio", "studio_dir"))
+        with mock.patch.dict(os.environ, {"STEEZY_ENGINE_DIR": eng}), mock.patch.object(sys, "platform", "darwin"):
+            self.assertIsNone(registry.studio_path())
+
+    def test_studio_path_on_windows_is_the_source_folder(self):
+        with mock.patch.object(sys, "platform", "win32"):
+            self.assertTrue(os.path.isdir(os.path.join(registry.studio_path(), "studio")))
 
 
 if __name__ == "__main__":

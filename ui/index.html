@@ -143,5 +143,14 @@
     const tiles = await pywebview.api.list_tools();
     $("tiles").replaceChildren(...tiles.map(tile));
   }
-  if (window.pywebview && window.pywebview.api) init(); else window.addEventListener("pywebviewready", init);
+  // Draw first, then look for news from GitHub in the background.
+  async function start() {
+    await init();
+    try {
+      const s = await pywebview.api.check_updates();
+      await init();
+      if (s.known && s.behind > 0) $("note").textContent = "A newer Steezy Studio is available. Press Update all.";
+    } catch (e) {}
+  }
+  if (window.pywebview && window.pywebview.api) start(); else window.addEventListener("pywebviewready", start);
 </script>

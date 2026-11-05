@@ -30,6 +30,29 @@ def configured_root() -> str:
         pass
     return DEFAULT_ROOT
 
+def studio_path() -> Optional[str]:
+    """The git clone Steezy Studio itself updates from. On Windows it runs from
+    source, so that is where this file lives. On a Mac the app carries a copy, so
+    make_app.sh records the clone in `studio_dir` beside the engine."""
+    if platform_paths.is_windows():
+        p = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    else:
+        try:
+            with open(os.path.join(os.path.dirname(platform_paths.engine_dir()), "studio_dir")) as f:
+                p = f.read().strip()
+        except OSError:
+            return None
+    return p if p and os.path.isdir(os.path.join(p, ".git")) else None
+
+
+def studio_tool(path: Optional[str] = None) -> Optional["Tool"]:
+    path = path or studio_path()
+    if not path:
+        return None
+    return Tool(id="studio", name="Steezy Studio", repo="", folder=os.path.basename(path), path=path,
+                build=["./make_app.sh"], app="Steezy Studio.app", platforms=["mac", "windows"])
+
+
 READY = "ready"
 NOT_INSTALLED = "not_installed"      # folder missing
 NOT_GIT = "not_git"                  # folder there, but not a git checkout
