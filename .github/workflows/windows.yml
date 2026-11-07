@@ -4,13 +4,13 @@ jobs:
   studio:
     runs-on: windows-latest
     timeout-minutes: 75
-    env:
-      STEEZY_ENGINE_DIR: '${{ runner.temp }}\engine'
-      STEEZY_INSTALL_DEST: '${{ runner.temp }}\studio'
-      STEEZY_TOOLS_DIR: '${{ runner.temp }}\tools'
-      PIP_CACHE_DIR: '${{ runner.temp }}\pip-cache'
-      TORCH_HOME: '${{ runner.temp }}\torch'
     steps:
+      - name: Folders (runner.temp isn't allowed in job-level env)
+        shell: pwsh
+        run: |
+          $t = $env:RUNNER_TEMP
+          "STEEZY_ENGINE_DIR=$t\engine", "STEEZY_INSTALL_DEST=$t\studio", "STEEZY_TOOLS_DIR=$t\tools",
+          "PIP_CACHE_DIR=$t\pip-cache", "TORCH_HOME=$t\torch" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
