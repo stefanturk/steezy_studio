@@ -16,7 +16,7 @@ from typing import Optional
 
 import sys
 
-from studio import invite, platform_paths, registry, share, updater
+from studio import installer, invite, platform_paths, registry, share, updater
 
 UI_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "index.html")
 APP_NAME = "Steezy Studio"
@@ -26,7 +26,8 @@ APP_DIRS = (os.path.expanduser("~/Applications"), "/Applications")
 
 def _git(path: str, *args: str) -> Optional[str]:
     try:
-        r = subprocess.run(["git", "-C", path, *args], capture_output=True, text=True, timeout=10)
+        r = subprocess.run(["git", "-C", path, *args], capture_output=True, text=True, timeout=10,
+                           **platform_paths.no_window())
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout.strip() if r.returncode == 0 else None
@@ -68,6 +69,8 @@ class Api:
         self._results: list = []
         self._update_kw: dict = {}      # tests inject refresh/build here
         self._studio_tool = None        # tests inject the Studio's own clone here
+        self._install_kw: dict = {}     # tests inject clone/refresh/build here
+        self._installing: Optional[str] = None
 
     def _tools(self):
         return registry.load_tools(self._registry_path, self._root)
@@ -76,7 +79,9 @@ class Api:
         out = []
         for t in self._tools():
             item = {"id": t.id, "name": t.name, "state": t.state, "message": t.message,
-                    "usable": t.usable, "version": None, "dirty": False, "behind": None, "app": None}
+                    "usable": t.usable, "version": None, "dirty": False, "behind": None, "app": None,
+                    "installable": t.state in (registry.NOT_INSTALLED, registry.NO_ACCESS),
+                    "installing": self._installing == t.id}
             if t.usable:
                 item.update(version_of(t.path), app=app_for(t, self._app_dirs))
                 item["version"] = item.pop("sha")
@@ -129,7 +134,7 @@ class Api:
         """Put text on the clipboard. The page falls back to its own copy if this says no."""
         cmd = ["clip"] if sys.platform.startswith("win") else ["pbcopy"]
         try:
-            subprocess.run(cmd, input=str(text), text=True, timeout=5, check=True)
+            subprocess.run(cmd, input=str(text), text=True, timeout=5, check=True, **platform_paths.no_window())
         except (OSError, subprocess.SubprocessError):
             return {"ok": False}
         return {"ok": True}
@@ -160,7 +165,31 @@ class Api:
             self._running = False
 
     def update_status(self) -> dict:
-        return {"running": self._running, "results": list(self._results)}
+        return {"running": self._running, "results": list(self._results), "installing": self._installing}
+
+    # ---- Install one tool: same worker and polling as Update all, so only one
+    # of the two runs at a time and a 2GB download never freezes the window.
+    def install_tool(self, tool_id: str) -> dict:
+        tool = next((t for t in self._tools() if t.id == tool_id), None)
+        if tool is None:
+            return {"started": False, "message": "Steezy Studio doesn't know that tool."}
+        with self._lock:
+            if self._running:
+                return {"started": False, "message": "Wait for the current update or install to finish."}
+            self._running, self._results, self._installing = True, [], tool.id
+        threading.Thread(target=self._do_install, args=(tool,), daemon=True).start()
+        return {"started": True, "message": ""}
+
+    def _do_install(self, tool):
+        try:
+            try:
+                res = installer.install_tool(tool, **self._install_kw)
+            except Exception as e:  # never leave the page spinning
+                res = updater.Result(tool.id, tool.name, installer.INSTALL_FAILED, "Unexpected problem: %s" % e)
+            self._results.append(res.__dict__)
+        finally:
+            self._installing = None
+            self._running = False
 
 
 def main():

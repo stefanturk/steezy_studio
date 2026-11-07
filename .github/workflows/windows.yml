@@ -1,36 +1,96 @@
 name: windows
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 jobs:
   studio:
     runs-on: windows-latest
+    timeout-minutes: 75
+    env:
+      STEEZY_ENGINE_DIR: '${{ runner.temp }}\engine'
+      STEEZY_INSTALL_DEST: '${{ runner.temp }}\studio'
+      STEEZY_TOOLS_DIR: '${{ runner.temp }}\tools'
+      PIP_CACHE_DIR: '${{ runner.temp }}\pip-cache'
+      TORCH_HOME: '${{ runner.temp }}\torch'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: python -m pip install pytest pywebview
-      - name: Studio tests (platform-neutral)
+      - name: Studio tests
         run: python -m pytest -q tests --deselect tests/test_install.py
+
       - name: PowerShell scripts parse
         shell: pwsh
         run: |
-          foreach ($f in 'install.ps1', 'engine/setup.ps1') {
+          foreach ($f in 'install.ps1', 'engine/setup.ps1', 'ci/launch_smoke.ps1') {
             $errs = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$errs)
             if ($errs) { $errs | ForEach-Object { Write-Error $_.Message }; exit 1 }
           }
-      - name: Engine installs and runs
-        shell: pwsh
-        env: { STEEZY_ENGINE_DIR: '${{ runner.temp }}\engine' }
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}\pip-cache
+            ${{ runner.temp }}\torch
+          key: win-pip-torch-v1
+
+      # What the beta tester does: the one line, no tool names, in Windows
+      # PowerShell 5.1 (the one Windows ships), against this commit's code.
+      - name: One-line install, Studio only (Windows PowerShell 5.1)
+        shell: powershell
+        env: { STEEZY_SKIP_SHORTCUTS: '1' }
         run: |
-          ./engine/setup.ps1
-          & "$env:STEEZY_ENGINE_DIR\python\python.exe" --version
-          & "$env:STEEZY_ENGINE_DIR\bin\ffmpeg.exe" -version | Select-Object -First 1
-          ./engine/setup.ps1   # second run is a no-op
-      - name: Installer end to end (Studio only, no shortcuts)
+          $PSVersionTable.PSVersion
+          ./install.ps1
+          if (-not (Test-Path "$env:STEEZY_INSTALL_DEST\.git")) { throw 'Studio not cloned' }
+          # The clone is of main; pin it to the commit under test.
+          git -C $env:STEEZY_INSTALL_DEST fetch -q --depth 1 origin ${{ github.sha }}
+          git -C $env:STEEZY_INSTALL_DEST checkout -q ${{ github.sha }}
+          if (Test-Path "$env:STEEZY_TOOLS_DIR\beat_thief") { throw 'No tool names should mean no tools' }
+
+      # Then he opens the Studio and presses Install on each Windows tool.
+      - name: Install every Windows tool from inside the Studio
         shell: pwsh
-        env:
-          STEEZY_ENGINE_DIR: '${{ runner.temp }}\engine'
-          STEEZY_INSTALL_DEST: '${{ runner.temp }}\studio'
-          STEEZY_TOOLS_DIR: '${{ runner.temp }}\tools'
-          STEEZY_SKIP_SHORTCUTS: '1'
+        working-directory: '${{ runner.temp }}\studio'
+        env: { STEEZY_SKIP_SHORTCUTS: '1' }
+        run: |
+          & "$env:STEEZY_ENGINE_DIR\python\python.exe" "$env:GITHUB_WORKSPACE\ci\install_from_studio.py"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: The Install button makes a Start-menu shortcut
+        shell: pwsh
+        working-directory: '${{ runner.temp }}\studio'
+        run: |
+          & "$env:STEEZY_ENGINE_DIR\python\python.exe" -c "from studio import registry, updater; t = [x for x in registry.load_tools() if x.id == 'session_sync'][0]; print(updater.default_build(t))"
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Session Sync.lnk'
+          if (-not (Test-Path $lnk)) { throw "no shortcut at $lnk" }
+          $s = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
+          "$($s.TargetPath) $($s.Arguments) in $($s.WorkingDirectory)"
+          if ($s.TargetPath -notlike '*pythonw.exe') { throw 'shortcut does not use pythonw' }
+
+      - name: The splitter is really there
+        shell: pwsh
+        run: |
+          & "$env:STEEZY_ENGINE_DIR\python\python.exe" -c "import torch, demucs, sessionsync; print('torch', torch.__version__)"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Apps start and stay up
+        shell: pwsh
+        run: ./ci/launch_smoke.ps1 -Engine $env:STEEZY_ENGINE_DIR -Studio $env:STEEZY_INSTALL_DEST -Tools $env:STEEZY_TOOLS_DIR
+
+      - name: Beat Thief isolates drums
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:STEEZY_ENGINE_DIR\bin;$env:PATH"
+          $clip = Join-Path $env:RUNNER_TEMP 'clip.wav'
+          & "$env:STEEZY_ENGINE_DIR\bin\ffmpeg.exe" -loglevel error -y -f lavfi -i "sine=frequency=110:duration=12" -f lavfi -i "anoisesrc=d=12:a=0.2" -filter_complex "amix=inputs=2" -ac 2 -ar 44100 $clip
+          $res = Join-Path $env:RUNNER_TEMP 'drums.json'
+          $p = Start-Process -FilePath "$env:STEEZY_ENGINE_DIR\python\pythonw.exe" -ArgumentList @("$env:GITHUB_WORKSPACE\ci\drum_isolation.py", "$env:STEEZY_TOOLS_DIR\beat_thief", $res, $clip) -Wait -PassThru
+          Get-Content $res
+          if ($p.ExitCode -ne 0) { exit 1 }
+
+      # The CLI path, with tool names, still works on top of the Studio-installed tools.
+      - name: One-line install with tool names (update path)
+        shell: powershell
+        env: { STEEZY_SKIP_SHORTCUTS: '1' }
         run: ./install.ps1 beat_thief session_sync

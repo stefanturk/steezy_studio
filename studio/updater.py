@@ -39,7 +39,8 @@ class Result:
 
 def _run(cmd: list, cwd: str, timeout: int = 1800, env: Optional[dict] = None):
     try:
-        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env,
+                           **platform_paths.no_window())
         return r.returncode, (r.stdout + r.stderr).strip()
     except subprocess.TimeoutExpired:
         return 124, "timed out"
@@ -59,19 +60,50 @@ def engine_python() -> Optional[str]:
 
 
 def default_refresh(tool: registry.Tool) -> tuple:
-    """pip-install the tool's requirements into the engine Python, if it has a
-    requirements.txt and the engine is there. (True, message) on success."""
-    req = os.path.join(tool.path, "requirements.txt")
+    """pip-install the tool's packages into the engine Python. On a Mac that is
+    requirements.txt (the build script does the rest); on Windows there is no
+    build step, so it is every file in windows_requirements, then `pip install
+    -e .` if the tool asks for it. (True, message) on success."""
     py = engine_python()
-    if not os.path.exists(req) or not py:
+    if not py:
+        return True, "no engine Python, so no packages to refresh"
+    pip = [py, "-m", "pip", "install", "--quiet", "--prefer-binary", "--upgrade"]
+    steps = []
+    files = (tool.windows_requirements or ["requirements.txt"]) if platform_paths.is_windows() else ["requirements.txt"]
+    for name in files:
+        if os.path.exists(os.path.join(tool.path, name)):
+            steps.append(pip + ["-r", name])
+    if platform_paths.is_windows() and tool.windows_pip_editable:
+        steps.append(pip + ["-e", "."])
+    if not steps:
         return True, "no packages to refresh"
-    code, out = _run([py, "-m", "pip", "install", "--quiet", "--prefer-binary", "--upgrade", "-r", req], tool.path)
+    for cmd in steps:
+        code, out = _run(cmd, tool.path, timeout=3600)
+        if code != 0:
+            return False, out[-400:]
+    return True, "packages up to date"
+
+
+def windows_shortcut(tool: registry.Tool) -> tuple:
+    """Start-menu shortcut that runs the tool with the engine's pythonw, the
+    same one install.ps1 makes. Skipped when STEEZY_SKIP_SHORTCUTS=1."""
+    if os.environ.get("STEEZY_SKIP_SHORTCUTS") == "1" or not tool.windows_run:
+        return True, "no shortcut"
+    pyw = platform_paths.python_in(platform_paths.engine_dir(), windowed=True)
+    args = subprocess.list2cmdline(tool.windows_run)
+    ps = ("$d = Join-Path $env:APPDATA 'Microsoft\\Windows\\Start Menu\\Programs'; "
+          "$l = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $d ($env:SZ_NAME + '.lnk'))); "
+          "$l.TargetPath = $env:SZ_TARGET; $l.Arguments = $env:SZ_ARGS; $l.WorkingDirectory = $env:SZ_DIR; $l.Save()")
+    env = dict(os.environ, SZ_NAME=tool.name, SZ_TARGET=pyw, SZ_ARGS=args, SZ_DIR=tool.path)
+    code, out = _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], tool.path, timeout=60, env=env)
     return code == 0, out[-400:]
 
 
 def default_build(tool: registry.Tool) -> tuple:
     if platform_paths.is_windows():
-        return True, "nothing to build on Windows"      # tools run from source via their shortcut
+        # Tools run from source; the only "build" is the Start-menu shortcut.
+        ok, out = windows_shortcut(tool)
+        return True, "nothing to build on Windows" + ("" if ok else " (couldn't make the Start-menu shortcut: %s)" % out)
     env = dict(os.environ)
     py = engine_python()
     if py:

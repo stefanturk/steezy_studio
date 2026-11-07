@@ -81,16 +81,45 @@
       if (!t.app) box.append(el("div", "msg", "Not built yet."));
       b.onclick = async () => { const r = await pywebview.api.open_tool(t.id); $("note").textContent = r.ok ? "" : r.message; };
       box.append(b);
+    } else if (t.installable) {
+      box.append(el("div", "msg", t.installing ? installingNote(t) : t.message));
+      const b = el("button", null, t.installing ? "Installing…" : "Install");
+      b.disabled = busy;
+      b.onclick = () => install(t);
+      box.append(b);
     } else {
       box.append(el("div", "msg", t.message));
-      const b = el("button", null, "Open"); b.disabled = true; box.append(b);
+      const b = el("button", null, t.state === "unsupported" ? "Not on this computer" : "Open");
+      b.disabled = true; box.append(b);
     }
     return box;
   }
 
+  // Beat Thief brings its instrument splitter (torch): most of a 2GB download.
+  function installingNote(t) {
+    return t.id === "beat_thief" ? "Downloading… this one is big (about 2GB), give it 10-20 minutes."
+                                 : "Downloading and setting up…";
+  }
+
+  let busy = false;
+  async function install(t) {
+    const r = await pywebview.api.install_tool(t.id);
+    if (!r.started) { $("note").textContent = r.message; return; }
+    busy = true; $("updateAll").disabled = true; notes[t.id] = "";
+    for (;;) {
+      const s = await pywebview.api.update_status();
+      s.results.forEach((x) => { notes[x.id] = x.message; });
+      await init();
+      if (!s.running) break;
+      await new Promise((res) => setTimeout(res, 1000));
+    }
+    busy = false; $("updateAll").disabled = false;
+    await init();
+  }
+
   const notes = {};
   async function updateAll() {
-    const b = $("updateAll"); b.disabled = true; b.textContent = "Updating…";
+    const b = $("updateAll"); b.disabled = true; b.textContent = "Updating…"; busy = true;
     await pywebview.api.update_all();
     for (;;) {
       const s = await pywebview.api.update_status();
@@ -99,7 +128,7 @@
       if (!s.running) break;
       await new Promise((r) => setTimeout(r, 700));
     }
-    b.disabled = false; b.textContent = "Update all";
+    b.disabled = false; b.textContent = "Update all"; busy = false; await init();
   }
   $("updateAll").onclick = updateAll;
 

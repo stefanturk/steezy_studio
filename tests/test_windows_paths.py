@@ -46,7 +46,7 @@ def test_open_tool_on_windows_starts_pythonw(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setattr(gui.subprocess, "Popen", lambda argv, **kw: calls.append((argv, kw)))
     reg = tmp_path / "r.json"
-    reg.write_text('{"tools":[{"id":"a","name":"A","repo":"x","folder":"a","build":["b"],"app":"A.app","windows_run":["-m","a"]}]}')
+    reg.write_text('{"tools":[{"id":"a","name":"A","repo":"x","folder":"a","build":["b"],"app":"A.app","platforms":["mac","windows"],"windows_run":["-m","a"]}]}')
     (tmp_path / "root" / "a" / ".git").mkdir(parents=True)
     api = gui.Api(str(reg), str(tmp_path / "root"))
     assert api.open_tool("a")["ok"]

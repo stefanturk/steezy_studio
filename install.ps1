@@ -3,7 +3,7 @@
 #   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/stefanturk/steezy_studio/main/install.ps1)))
 #   & ([scriptblock]::Create((irm .../install.ps1))) beat_thief session_sync
 #
-# No tool names = the Studio only. `all` installs every tool that has a Windows
+# No tool names = the Studio only; then press Install on a tool inside the Studio. `all` installs every tool that has a Windows
 # version. Run it again any time to update. Private tools need a GitHub account
 # Stefan has invited; if one can't be reached it is skipped and the rest install.
 #
@@ -21,6 +21,15 @@ $Failed = @()
 
 function Say($m)  { Write-Host ""; Write-Host $m -ForegroundColor White }
 function Note($m) { Write-Host "   $m" }
+
+# Run a native command with its stderr hidden. Windows PowerShell 5.1 turns
+# redirected stderr into a terminating error under 'Stop', and git writes its
+# progress to stderr, so a plain `git clone ... 2>$null` would end the script.
+function Quiet([scriptblock]$Cmd) {
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Cmd 2>&1 | Out-Null } finally { $ErrorActionPreference = $old }
+}
 
 function Clone-Url($url) {
     if ($env:STEEZY_REPO_BASE) { return (Join-Path $env:STEEZY_REPO_BASE ([IO.Path]::GetFileNameWithoutExtension($url))) }
@@ -94,14 +103,14 @@ foreach ($id in $want) {
         git -C $dir pull --ff-only
         if ($LASTEXITCODE -ne 0) { Note "Couldn't update $id (local changes?). Carrying on." }
     } else {
-        git clone --depth 1 (Clone-Url $t.repo) $dir 2>$null
+        Quiet { git clone --depth 1 (Clone-Url $t.repo) $dir }
         if (($LASTEXITCODE -ne 0) -and $t.private -and -not $env:STEEZY_REPO_BASE) {
             if (Get-Command gh -ErrorAction SilentlyContinue) {
                 Note "$($t.name) is private. Sign in to GitHub (the account Stefan invited):"
-                gh auth status 2>$null
+                Quiet { gh auth status }
                 if ($LASTEXITCODE -ne 0) { gh auth login --web --git-protocol https }
-                gh auth setup-git 2>$null
-                git clone --depth 1 $t.repo $dir 2>$null
+                Quiet { gh auth setup-git }
+                Quiet { git clone --depth 1 $t.repo $dir }
             }
         }
         if (-not (Test-Path (Join-Path $dir '.git'))) {
@@ -110,14 +119,23 @@ foreach ($id in $want) {
             $Failed += $id; continue
         }
     }
-    $req = Join-Path $dir 'requirements.txt'
-    if ((Test-Path $Py) -and (Test-Path $req)) {
-        & $Py -m pip install --quiet --prefer-binary -r $req
-        if ($LASTEXITCODE -ne 0) { Note "Some packages for $id didn't install; press Update all in the Studio to retry."; $Failed += $id }
-    }
-    if ((Test-Path $Py) -and -not (Test-Path $req) -and (Test-Path (Join-Path $dir 'pyproject.toml'))) {
-        & $Py -m pip install --quiet --prefer-binary -e $dir
-        if ($LASTEXITCODE -ne 0) { Note "Some packages for $id didn't install; press Update all in the Studio to retry."; $Failed += $id }
+    # Same rule as the Studio's Install button (updater.default_refresh): every file
+    # in windows_requirements (default requirements.txt), then -e . if asked.
+    if (Test-Path $Py) {
+        $reqs = if ($t.windows_requirements) { @($t.windows_requirements) } else { @('requirements.txt') }
+        $pipOk = $true
+        foreach ($r in $reqs) {
+            $req = Join-Path $dir $r
+            if (-not (Test-Path $req)) { continue }
+            if ($r -ne 'requirements.txt') { Note "Installing $r (this can be a big download)..." }
+            & $Py -m pip install --quiet --prefer-binary --upgrade -r $req
+            if ($LASTEXITCODE -ne 0) { $pipOk = $false }
+        }
+        if ($t.windows_pip_editable) {
+            & $Py -m pip install --quiet --prefer-binary --upgrade -e $dir
+            if ($LASTEXITCODE -ne 0) { $pipOk = $false }
+        }
+        if (-not $pipOk) { Note "Some packages for $id didn't install; run this line again to retry."; $Failed += $id }
     }
     if ($t.windows_run) {
         $pyw = Join-Path $Engine 'python\pythonw.exe'
@@ -128,4 +146,5 @@ foreach ($id in $want) {
 
 Say 'Done'
 Note 'Open it from the Start menu: Steezy Studio.'
+Note 'Press Install on any tool you want; Update all keeps them current.'
 if ($Failed.Count -gt 0) { Note ("Not installed: " + ($Failed -join ' ')) }

@@ -58,6 +58,7 @@ NOT_INSTALLED = "not_installed"      # folder missing
 NOT_GIT = "not_git"                  # folder there, but not a git checkout
 NO_ACCESS = "no_access"              # GitHub says this account can't see the repo
 BROKEN = "broken"                    # registry entry unusable
+UNSUPPORTED = "unsupported"          # no version for this OS yet
 
 _REQUIRED = ("id", "name", "repo", "folder", "build", "app")
 
@@ -74,6 +75,10 @@ class Tool:
     platforms: list
     private: bool = False
     windows_run: list = None      # argv after pythonw to start the tool on Windows
+    # Windows has no build step, so pip does all of it: these requirement files in
+    # order, then `pip install -e .` if set. (On a Mac the tool's own build script decides.)
+    windows_requirements: list = None
+    windows_pip_editable: bool = False
     state: str = READY
     message: str = ""
 
@@ -128,10 +133,16 @@ def load_tools(registry_path: Optional[str] = None, root: Optional[str] = None,
         t = Tool(id=raw["id"], name=raw["name"], repo=raw["repo"], folder=raw["folder"],
                  path=os.path.join(root, raw["folder"]), build=build, app=raw["app"],
                  platforms=list(raw.get("platforms") or ["mac"]), private=bool(raw.get("private", False)),
-                 windows_run=list(raw.get("windows_run") or []))
-        if not os.path.isdir(t.path):
+                 windows_run=list(raw.get("windows_run") or []),
+                 windows_requirements=[str(r) for r in (raw.get("windows_requirements") or ["requirements.txt"])],
+                 windows_pip_editable=bool(raw.get("windows_pip_editable", False)))
+        if platform_paths.os_name() not in t.platforms:
+            t.state = UNSUPPORTED
+            t.message = "%s is %s only for now." % (t.name, " and ".join(
+                {"mac": "Mac", "windows": "Windows"}.get(p, p) for p in t.platforms) or "not available")
+        elif not os.path.isdir(t.path):
             t.state = NOT_INSTALLED
-            t.message = "%s isn't on this computer yet." % t.name
+            t.message = "%s isn't on this computer yet. Press Install." % t.name
             if has_access is not None:
                 try:
                     if not has_access(t):
