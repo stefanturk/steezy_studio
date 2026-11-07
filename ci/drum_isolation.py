@@ -13,10 +13,14 @@ os.chdir(bt)
 result = {"ok": False}
 try:
     import instrument_isolator
-    stems = instrument_isolator.separated_stems(clip, "htdemucs")
+    # As the GUI does (pipeline.py passes on_percent): pythonw has no stdout
+    # for the terminal progress bar.
+    seen = []
+    ctx = instrument_isolator.RunContext(interactive=False, on_percent=seen.append)
+    stems = instrument_isolator.separated_stems(clip, "htdemucs", ctx)
     files = sorted(os.listdir(stems))
     result = {"ok": "drums.wav" in files, "stems": files, "dir": stems,
-              "drums_bytes": os.path.getsize(os.path.join(stems, "drums.wav")) if "drums.wav" in files else 0}
+              "last_percent": seen[-1] if seen else None, "drums_bytes": os.path.getsize(os.path.join(stems, "drums.wav")) if "drums.wav" in files else 0}
 except BaseException:
     result["error"] = traceback.format_exc()
 with open(out, "w") as f:
