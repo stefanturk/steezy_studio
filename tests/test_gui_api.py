@@ -71,6 +71,52 @@ class T(unittest.TestCase):
         self.assertIsNone(a["version"])
 
 
+class TestOpenOnlyWhenReady(T):
+    def _wait(self):
+        import time
+        for _ in range(200):
+            s = self.api.update_status()
+            if not s["running"]:
+                return s
+            time.sleep(0.05)
+        raise AssertionError("never finished")
+
+    def test_open_is_locked_while_a_tool_waits_or_updates(self):
+        self.repo("a"); os.makedirs(os.path.join(self.apps, "A.app"))
+        self.assertTrue(self.api.list_tools()[0]["openable"])
+        self.api._queued = {"a"}
+        self.assertFalse(self.api.list_tools()[0]["openable"])
+        self.api._queued, self.api._working_on = set(), "a"
+        a = self.api.list_tools()[0]
+        self.assertFalse(a["openable"]); self.assertTrue(a["updating"])
+        self.api._working_on, self.api._installing = None, "a"
+        self.assertFalse(self.api.list_tools()[0]["openable"])
+
+    def test_a_failed_update_still_opens_with_a_note(self):
+        self.repo("a"); os.makedirs(os.path.join(self.apps, "A.app"))
+        p = os.path.join(self.root, "a")
+        up = os.path.join(self.d, "up"); subprocess.run(["git", "clone", "-q", p, up], check=True)
+        git(p, "remote", "add", "origin", up); git(p, "fetch", "-q"); git(p, "branch", "-q", "-u", "origin/main")
+        git(up, "commit", "-q", "--allow-empty", "-m", "two")
+        self.api._studio_tool = None
+        with mock.patch.object(registry, "studio_path", return_value=None):
+            self.api._update_kw = {"refresh": lambda t: (False, "no wheel"), "build": lambda t: (True, "")}
+            self.api.update_all()
+            s = self._wait()
+        a = next(r for r in s["results"] if r["id"] == "a")
+        self.assertEqual(a["status"], "build_failed")
+        self.assertIn("still open the version you have", a["message"])
+        self.assertTrue(self.api.list_tools()[0]["openable"])
+
+    def test_needs_update_when_behind_or_never_built(self):
+        with mock.patch.object(registry, "studio_path", return_value=None):
+            self.assertFalse(self.api.needs_update())                 # nothing installed
+            self.repo("a")
+            self.assertTrue(self.api.needs_update())                  # cloned, never built
+            os.makedirs(os.path.join(self.apps, "A.app"))
+            self.assertFalse(self.api.needs_update())
+
+
 class TestUpdateAllApi(T):
     def test_update_all_reports_each_tool_and_never_blocks(self):
         import time
@@ -109,7 +155,7 @@ class TestUpdateAllApi(T):
     def test_studio_without_a_known_clone_is_just_unknown(self):
         with mock.patch.object(registry, "studio_path", return_value=None):
             self.assertEqual(self.api.studio_status(), {"known": False, "behind": None})
-            self.assertEqual(self.api.check_updates(), {"known": False, "behind": None})
+            self.assertEqual(self.api.check_updates(), {"known": False, "behind": None, "update_needed": False})
 
     def test_update_all_pulls_the_studio_itself_last_and_says_restart(self):
         import time

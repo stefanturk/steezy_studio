@@ -67,6 +67,8 @@ jobs:
           $s = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
           "$($s.TargetPath) $($s.Arguments) in $($s.WorkingDirectory)"
           if ($s.TargetPath -notlike '*pythonw.exe') { throw 'shortcut does not use pythonw' }
+          "icon: $($s.IconLocation)"
+          if ($s.IconLocation -notlike '*icon.ico*') { throw 'shortcut has no icon of its own' }
 
       - name: The splitter is really there
         shell: pwsh

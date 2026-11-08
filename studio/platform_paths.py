@@ -42,3 +42,37 @@ def no_window() -> dict:
         import subprocess
         return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)}
     return {}
+
+
+def windows_app_identity(app_id: str) -> None:
+    """Its own taskbar group on Windows, rather than Python's (see set_window_icon)."""
+    if not is_windows():
+        return
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Steezy." + app_id)
+    except Exception:
+        pass
+
+
+def set_window_icon(title: str, ico_path: str) -> bool:
+    """Put ico_path on the top-level window called title, so the window and
+    its taskbar button wear the app's icon instead of Python's. Windows only."""
+    if not is_windows() or not os.path.exists(ico_path):
+        return False
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        user32.FindWindowW.restype = ctypes.c_void_p
+        user32.LoadImageW.restype = ctypes.c_void_p
+        user32.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+        hwnd = user32.FindWindowW(None, title)
+        if not hwnd:
+            return False
+        for which, size in ((1, 0), (0, 16)):        # ICON_BIG, ICON_SMALL
+            icon = user32.LoadImageW(None, ico_path, 1, size, size, 0x10 | (0x40 if size == 0 else 0))
+            if icon:
+                user32.SendMessageW(hwnd, 0x80, which, icon)   # WM_SETICON
+        return True
+    except Exception:
+        return False

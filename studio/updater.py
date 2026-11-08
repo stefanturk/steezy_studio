@@ -86,15 +86,19 @@ def default_refresh(tool: registry.Tool) -> tuple:
 
 def windows_shortcut(tool: registry.Tool) -> tuple:
     """Start-menu shortcut that runs the tool with the engine's pythonw, the
-    same one install.ps1 makes. Skipped when STEEZY_SKIP_SHORTCUTS=1."""
+    same one install.ps1 makes, with the tool's icon.ico when its repo has
+    one. Skipped when STEEZY_SKIP_SHORTCUTS=1."""
     if os.environ.get("STEEZY_SKIP_SHORTCUTS") == "1" or not tool.windows_run:
         return True, "no shortcut"
     pyw = platform_paths.python_in(platform_paths.engine_dir(), windowed=True)
     args = subprocess.list2cmdline(tool.windows_run)
     ps = ("$d = Join-Path $env:APPDATA 'Microsoft\\Windows\\Start Menu\\Programs'; "
           "$l = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $d ($env:SZ_NAME + '.lnk'))); "
-          "$l.TargetPath = $env:SZ_TARGET; $l.Arguments = $env:SZ_ARGS; $l.WorkingDirectory = $env:SZ_DIR; $l.Save()")
-    env = dict(os.environ, SZ_NAME=tool.name, SZ_TARGET=pyw, SZ_ARGS=args, SZ_DIR=tool.path)
+          "$l.TargetPath = $env:SZ_TARGET; $l.Arguments = $env:SZ_ARGS; $l.WorkingDirectory = $env:SZ_DIR; "
+          "if ($env:SZ_ICON) { $l.IconLocation = $env:SZ_ICON + ',0' }; $l.Save()")
+    ico = os.path.join(tool.path, "icon.ico")
+    env = dict(os.environ, SZ_NAME=tool.name, SZ_TARGET=pyw, SZ_ARGS=args, SZ_DIR=tool.path,
+               SZ_ICON=ico if os.path.exists(ico) else "")
     code, out = _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], tool.path, timeout=60, env=env)
     return code == 0, out[-400:]
 
@@ -163,10 +167,13 @@ def fetch_quietly(tools: list) -> None:
             _git(t.path, "fetch", "--quiet")
 
 
-def update_all(tools: list, on_result: Optional[Callable[[Result], None]] = None, **kw) -> list:
+def update_all(tools: list, on_result: Optional[Callable[[Result], None]] = None,
+               on_start: Optional[Callable[[registry.Tool], None]] = None, **kw) -> list:
     results = []
     studio = kw.pop("studio", None)
     for t in list(tools) + ([studio] if studio else []):
+        if on_start:
+            on_start(t)
         try:
             res = update_tool(t, **kw)
             if t is studio and res.status == UPDATED:

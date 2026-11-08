@@ -76,9 +76,12 @@
       let meta = (t.version || "?") + (t.dirty ? " · has local changes" : "");
       if (t.behind > 0) meta += " · " + t.behind + " newer";
       box.append(el("div", "meta", meta));
-      const b = el("button", null, "Open");
-      b.disabled = !t.app;
-      if (!t.app) box.append(el("div", "msg", "Not built yet."));
+      // Open only once the tool is really ready: not while it installs,
+      // updates or waits its turn, which used to let you open a half-built app.
+      const label = t.updating ? "Updating…" : t.waiting ? "Waiting to update" : t.installing ? "Installing…" : "Open";
+      const b = el("button", null, label);
+      b.disabled = !t.openable;
+      if (!t.app && !t.updating && !t.waiting) box.append(el("div", "msg", "Not built yet."));
       b.onclick = async () => { const r = await pywebview.api.open_tool(t.id); $("note").textContent = r.ok ? "" : r.message; };
       box.append(b);
     } else if (t.installable) {
@@ -172,13 +175,19 @@
     const tiles = await pywebview.api.list_tools();
     $("tiles").replaceChildren(...tiles.map(tile));
   }
-  // Draw first, then look for news from GitHub in the background.
+  // Draw first, then look for news from GitHub in the background, and if
+  // anything is behind, bring it up to date before it can be opened.
   async function start() {
     await init();
     try {
       const s = await pywebview.api.check_updates();
       await init();
-      if (s.known && s.behind > 0) $("note").textContent = "A newer Steezy Studio is available. Press Update all.";
+      if (s.update_needed && !busy) {
+        $("note").textContent = "Getting the latest versions…";
+        await updateAll();
+        $("note").textContent = (s.known && s.behind > 0)
+          ? "Steezy Studio itself was updated. Quit and reopen it to use the new version." : "";
+      }
     } catch (e) {}
   }
   if (window.pywebview && window.pywebview.api) start(); else window.addEventListener("pywebviewready", start);

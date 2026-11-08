@@ -74,6 +74,9 @@ function New-Shortcut($Name, $Target, $Arguments, $WorkDir) {
     $lnk.TargetPath = $Target
     $lnk.Arguments = $Arguments
     $lnk.WorkingDirectory = $WorkDir
+    # The tool's own icon, not Python's, when its repo has one.
+    $ico = Join-Path $WorkDir 'icon.ico'
+    if (Test-Path $ico) { $lnk.IconLocation = "$ico,0" }
     $lnk.Save()
 }
 

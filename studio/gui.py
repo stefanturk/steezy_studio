@@ -71,6 +71,8 @@ class Api:
         self._studio_tool = None        # tests inject the Studio's own clone here
         self._install_kw: dict = {}     # tests inject clone/refresh/build here
         self._installing: Optional[str] = None
+        self._working_on: Optional[str] = None   # the tool an update is on right now
+        self._queued: set = set()                # tools an update hasn't reached yet
 
     def _tools(self):
         return registry.load_tools(self._registry_path, self._root)
@@ -81,19 +83,38 @@ class Api:
             item = {"id": t.id, "name": t.name, "state": t.state, "message": t.message,
                     "usable": t.usable, "version": None, "dirty": False, "behind": None, "app": None,
                     "installable": t.state in (registry.NOT_INSTALLED, registry.NO_ACCESS),
-                    "installing": self._installing == t.id}
+                    "installing": self._installing == t.id,
+                    "updating": self._working_on == t.id, "waiting": t.id in self._queued,
+                    "openable": False}
             if t.usable:
                 item.update(version_of(t.path), app=app_for(t, self._app_dirs))
                 item["version"] = item.pop("sha")
+                # Open only once the tool is really there: not mid-install,
+                # mid-update or still waiting its turn to update.
+                item["openable"] = bool(item["app"]) and not (
+                    item["installing"] or item["updating"] or item["waiting"])
             out.append(item)
         return out
+
+    def needs_update(self) -> bool:
+        """Whether anything is behind GitHub, or cloned but never built - what
+        the page checks on launch to decide to update on its own."""
+        st = self._studio()
+        for t in self._tools() + ([st] if st else []):
+            if not t.usable:
+                continue
+            if (version_of(t.path)["behind"] or 0) > 0:
+                return True
+            if t is not st and app_for(t, self._app_dirs) is None:
+                return True
+        return False
 
     def check_updates(self) -> dict:
         """Fetch every tool and the Studio itself (slow, so the page calls this
         after it has drawn), then say how far behind the Studio is."""
         st = self._studio()
         updater.fetch_quietly(self._tools() + ([st] if st else []))
-        return self.studio_status()
+        return dict(self.studio_status(), update_needed=self.needs_update())
 
     def _studio(self):
         return self._studio_tool or registry.studio_tool()
@@ -153,15 +174,32 @@ class Api:
         threading.Thread(target=self._do_update, daemon=True).start()
         return {"started": True}
 
+    # A tool that couldn't update still opens, at the version it has.
+    _KEEPS_OLD = (updater.NO_NETWORK, updater.SKIPPED_DIRTY, updater.SKIPPED_AHEAD,
+                  updater.SKIPPED_DIVERGED, updater.BUILD_FAILED)
+
     def _do_update(self):
+        tools, studio = self._tools(), self._studio()
+        self._queued = {t.id for t in tools + ([studio] if studio else []) if t.usable}
+
+        def started(t):
+            self._queued.discard(t.id)
+            self._working_on = t.id
+
+        def finished(r):
+            if r.status in self._KEEPS_OLD and r.id != "studio":
+                r.message += " You can still open the version you have."
+            self._working_on = None
+            self._results.append(r.__dict__)
+
         try:
             updater.update_all(
-                self._tools(),
-                on_result=lambda r: self._results.append(r.__dict__),
+                tools, on_result=finished, on_start=started,
                 app_exists=lambda t: t.id == "studio" or app_for(t, self._app_dirs) is not None,
-                studio=self._studio(),
+                studio=studio,
                 **self._update_kw)
         finally:
+            self._working_on, self._queued = None, set()
             self._running = False
 
     def update_status(self) -> dict:
@@ -196,8 +234,11 @@ def main():
     import webview  # imported here so the Api above stays testable without it
 
     api = Api()
-    webview.create_window(APP_NAME, UI_FILE, js_api=api, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1],
-                          min_size=(520, 420))
+    platform_paths.windows_app_identity("studio")
+    window = webview.create_window(APP_NAME, UI_FILE, js_api=api, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1],
+                                   min_size=(520, 420))
+    ico = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icon.ico")
+    window.events.shown += lambda: platform_paths.set_window_icon(APP_NAME, ico)
     webview.start()
 
 

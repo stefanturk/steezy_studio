@@ -147,12 +147,14 @@ def test_windows_build_makes_the_start_menu_shortcut(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "platform", "win32")
     monkeypatch.delenv("STEEZY_SKIP_SHORTCUTS")
     root = tmp_path / "tools"; (root / "bt").mkdir(parents=True)
+    (root / "bt" / "icon.ico").write_bytes(b"\0\0\1\0")
     calls = []
     monkeypatch.setattr(updater, "_run", lambda cmd, cwd, timeout=0, env=None: (calls.append((cmd, env)), (0, ""))[1])
     assert updater.default_build(_tool(tmp_path, root)) == (True, "nothing to build on Windows")
     cmd, env = calls[0]
-    assert cmd[0] == "powershell" and "CreateShortcut" in cmd[-1]
+    assert cmd[0] == "powershell" and "CreateShortcut" in cmd[-1] and "IconLocation" in cmd[-1]
     assert env["SZ_NAME"] == "Beat Thief" and env["SZ_TARGET"].endswith("pythonw.exe") and env["SZ_ARGS"] == "gui.py"
+    assert env["SZ_ICON"].endswith("icon.ico")
 
 
 def test_shipped_registry_gives_windows_tools_their_packages():
