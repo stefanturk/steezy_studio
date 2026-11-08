@@ -118,7 +118,11 @@ jobs:
           Set-ExecutionPolicy -ExecutionPolicy Restricted -Scope Process -Force
           Get-ExecutionPolicy -List
           $log = Join-Path $env:RUNNER_TEMP 'install.log'
-          & ([scriptblock]::Create((Get-Content -Raw ./install.ps1))) session_sync *>&1 | Tee-Object -FilePath $log
+          # A transcript, not a redirect: redirecting makes PowerShell 5.1 treat git's
+          # progress (on stderr) as an error, which Sam's plain window never does.
+          Start-Transcript -Path $log | Out-Null
+          & ([scriptblock]::Create((Get-Content -Raw ./install.ps1))) session_sync
+          Stop-Transcript | Out-Null
           $out = Get-Content -Raw $log
           if ($out -match 'running scripts is disabled') { throw 'setup.ps1 was blocked by the execution policy' }
           if ($out -match 'is installed in .* which is not on PATH') { throw 'pip printed a PATH warning' }
