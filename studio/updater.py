@@ -38,6 +38,8 @@ class Result:
 
 
 def _run(cmd: list, cwd: str, timeout: int = 1800, env: Optional[dict] = None):
+    if cmd and cmd[0] == "git":
+        platform_paths.use_private_git()  # Windows without Git: install.ps1's MinGit
     try:
         r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env,
                            **platform_paths.no_window())
@@ -67,7 +69,9 @@ def default_refresh(tool: registry.Tool) -> tuple:
     py = engine_python()
     if not py:
         return True, "no engine Python, so no packages to refresh"
-    pip = [py, "-m", "pip", "install", "--quiet", "--prefer-binary", "--upgrade"]
+    # --no-warn-script-location: the engine's Scripts folder is never on PATH and
+    # needn't be (tools run as `python -m`), so pip's PATH warning is only noise.
+    pip = [py, "-m", "pip", "install", "--quiet", "--prefer-binary", "--upgrade", "--no-warn-script-location"]
     steps = []
     files = (tool.windows_requirements or ["requirements.txt"]) if platform_paths.is_windows() else ["requirements.txt"]
     for name in files:

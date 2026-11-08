@@ -24,6 +24,23 @@ def engine_dir() -> str:
     return os.path.expanduser("~/Library/Application Support/Steezy Studio/engine")
 
 
+def use_private_git(environ=None) -> bool:
+    """Windows without Git: install.ps1 may have put a private MinGit in the
+    engine folder. Put it on this process's PATH so `git` works for every
+    update and install. True when it was added."""
+    environ = os.environ if environ is None else environ
+    if not is_windows():
+        return False
+    cmd = os.path.join(engine_dir(), "mingit", "cmd")
+    if not os.path.exists(os.path.join(cmd, "git.exe")):
+        return False
+    path = environ.get("PATH", "")
+    if cmd.lower() in (p.lower() for p in path.split(";")):
+        return False
+    environ["PATH"] = cmd + (";" + path if path else "")
+    return True
+
+
 def python_in(engine: str, windowed: bool = False) -> str:
     if is_windows():
         return ntpath.join(engine, "python", "pythonw.exe" if windowed else "python.exe")

@@ -38,9 +38,52 @@ function Clone-Url($url) {
 
 Say 'Steezy Studio'
 
+# Git: the one on PATH; else a private MinGit already in the engine folder; else
+# Windows' own installer (winget); else a pinned MinGit download (checked by
+# SHA-256) into the engine folder. Nothing asks for admin rights.
+$MinGitDir = Join-Path $Engine 'mingit'
+function Use-PrivateGit {
+    $cmd = Join-Path $MinGitDir 'cmd'
+    if (Test-Path (Join-Path $cmd 'git.exe')) { $env:PATH = "$cmd;$env:PATH"; return $true }
+    return $false
+}
+function Refresh-Path {
+    $m = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $u = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:PATH = "$m;$u;$env:PATH"
+}
+if ($env:STEEZY_NO_SYSTEM_GIT -eq '1') {
+    # CI: behave like a PC without Git
+    $env:PATH = (($env:PATH -split ';') | Where-Object { $_ -and -not (Test-Path (Join-Path $_ 'git.exe')) }) -join ';'
+}
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) { [void](Use-PrivateGit) }
+if (-not (Get-Command git -ErrorAction SilentlyContinue) -and $env:STEEZY_NO_SYSTEM_GIT -ne '1' -and (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Say 'Installing Git (Windows needs it to fetch the tools)'
+    Quiet { winget install --id Git.Git -e --source winget --silent --accept-package-agreements --accept-source-agreements }
+    Refresh-Path
+}
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Note 'Windows needs Git first. Install it from https://git-scm.com/download/win,'
-    Note 'then run this same line again.'
+    Say 'Getting a private copy of Git'
+    $GitVer = '2.56.0.windows.4'
+    $GitZip = 'MinGit-2.56.0.4-64-bit.zip'
+    $GitSha = 'e3bf78351fe777fba47ddee5950082f8a98bb0f02604fdc7ba3ee2cb68ffa877'
+    $zip = Join-Path ([IO.Path]::GetTempPath()) $GitZip
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download/v$GitVer/$GitZip" -OutFile $zip -UseBasicParsing
+        if ((Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLower() -ne $GitSha) { throw 'wrong file' }
+        if (Test-Path $MinGitDir) { Remove-Item -Recurse -Force $MinGitDir }
+        Expand-Archive -Path $zip -DestinationPath $MinGitDir -Force
+    } catch {
+        Note "Couldn't get Git ($_)."
+    } finally {
+        Remove-Item -Force $zip -ErrorAction SilentlyContinue
+    }
+    [void](Use-PrivateGit)
+}
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Note 'Windows needs Git first, and it could not be installed automatically.'
+    Note 'Install it from https://git-scm.com/download/win, then run this same line again.'
     return
 }
 
@@ -59,7 +102,12 @@ if (Test-Path (Join-Path $Dest '.git')) {
 }
 
 if ($env:STEEZY_SKIP_ENGINE -ne '1') {
-    & (Join-Path $Dest 'engine\setup.ps1')
+    # Its own PowerShell with -ExecutionPolicy Bypass for this one run: Windows
+    # blocks running .ps1 files by default ("running scripts is disabled on this
+    # system"), and nothing on the PC needs changing for this.
+    $shell = (Get-Process -Id $PID).Path
+    & $shell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Dest 'engine\setup.ps1')
+    if ($LASTEXITCODE -ne 0) { Note "The engine didn't finish setting up; run this same line again."; return }
 }
 $Py = Join-Path $Engine 'python\python.exe'
 
@@ -83,7 +131,7 @@ function New-Shortcut($Name, $Target, $Arguments, $WorkDir) {
 # The Studio window itself (pythonw = no console flash).
 if (Test-Path $Py) {
     Say 'Setting up the Studio window'
-    & $Py -m pip install --quiet --prefer-binary --upgrade -r (Join-Path $Dest 'requirements.txt')
+    & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location -r (Join-Path $Dest 'requirements.txt')
     $pyw = Join-Path $Engine 'python\pythonw.exe'
     New-Shortcut 'Steezy Studio' $pyw '-m studio.gui' $Dest
     Note 'Start menu: Steezy Studio'
@@ -131,11 +179,11 @@ foreach ($id in $want) {
             $req = Join-Path $dir $r
             if (-not (Test-Path $req)) { continue }
             if ($r -ne 'requirements.txt') { Note "Installing $r (this can be a big download)..." }
-            & $Py -m pip install --quiet --prefer-binary --upgrade -r $req
+            & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location -r $req
             if ($LASTEXITCODE -ne 0) { $pipOk = $false }
         }
         if ($t.windows_pip_editable) {
-            & $Py -m pip install --quiet --prefer-binary --upgrade -e $dir
+            & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location -e $dir
             if ($LASTEXITCODE -ne 0) { $pipOk = $false }
         }
         if (-not $pipOk) { Note "Some packages for $id didn't install; run this line again to retry."; $Failed += $id }

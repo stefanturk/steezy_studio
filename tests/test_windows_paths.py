@@ -52,3 +52,27 @@ def test_open_tool_on_windows_starts_pythonw(monkeypatch, tmp_path):
     assert api.open_tool("a")["ok"]
     argv, kw = calls[0]
     assert argv[0].endswith("pythonw.exe") and argv[1:] == ["-m", "a"] and kw["cwd"].endswith("a")
+
+
+def test_a_private_git_from_the_installer_goes_on_path(monkeypatch, tmp_path):
+    win(monkeypatch)
+    monkeypatch.setenv("STEEZY_ENGINE_DIR", str(tmp_path))
+    env = {"PATH": "C:\\Windows"}
+    assert platform_paths.use_private_git(env) is False  # none there
+    cmd = tmp_path / "mingit" / "cmd"
+    cmd.mkdir(parents=True)
+    (cmd / "git.exe").write_bytes(b"")
+    assert platform_paths.use_private_git(env) is True
+    assert env["PATH"].split(";")[0].endswith("cmd") and env["PATH"].endswith("C:\\Windows")
+    assert platform_paths.use_private_git(env) is False  # once only
+
+
+def test_pip_installs_quietly_without_path_warnings(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(updater, "engine_python", lambda: "py")
+    monkeypatch.setattr(updater, "_run", lambda cmd, cwd, timeout=0, env=None: (calls.append(cmd), (0, ""))[1])
+    t = registry.load_tools(root=str(tmp_path))[0]
+    t.path = str(tmp_path)
+    (tmp_path / "requirements.txt").write_text("x\n")
+    assert updater.default_refresh(t)[0]
+    assert calls and all("--no-warn-script-location" in c for c in calls)

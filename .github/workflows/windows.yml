@@ -96,3 +96,34 @@ jobs:
         shell: powershell
         env: { STEEZY_SKIP_SHORTCUTS: '1' }
         run: ./install.ps1 beat_thief session_sync
+
+  # Sam's PC: scripts blocked (the Windows default) and no Git. The one line must
+  # still work: Git arrives as a private MinGit, the engine's setup.ps1 runs
+  # anyway, and pip prints no PATH warnings.
+  locked_down:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Folders
+        shell: pwsh
+        run: |
+          $t = $env:RUNNER_TEMP
+          "STEEZY_ENGINE_DIR=$t\engine", "STEEZY_INSTALL_DEST=$t\studio", "STEEZY_TOOLS_DIR=$t\tools",
+          "PIP_CACHE_DIR=$t\pip-cache" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - uses: actions/checkout@v4
+      - name: One line, scripts Restricted, no Git (Windows PowerShell 5.1)
+        shell: powershell
+        env: { STEEZY_SKIP_SHORTCUTS: '1', STEEZY_NO_SYSTEM_GIT: '1' }
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy Restricted -Scope Process -Force
+          Get-ExecutionPolicy -List
+          $log = Join-Path $env:RUNNER_TEMP 'install.log'
+          & ([scriptblock]::Create((Get-Content -Raw ./install.ps1))) session_sync *>&1 | Tee-Object -FilePath $log
+          $out = Get-Content -Raw $log
+          if ($out -match 'running scripts is disabled') { throw 'setup.ps1 was blocked by the execution policy' }
+          if ($out -match 'is installed in .* which is not on PATH') { throw 'pip printed a PATH warning' }
+          if (-not (Test-Path "$env:STEEZY_ENGINE_DIR\mingit\cmd\git.exe")) { throw 'no private Git' }
+          if (-not (Test-Path "$env:STEEZY_ENGINE_DIR\python\python.exe")) { throw 'engine not set up' }
+          if (-not (Test-Path "$env:STEEZY_TOOLS_DIR\session_sync\.git")) { throw 'Session Sync not cloned' }
+          & "$env:STEEZY_ENGINE_DIR\python\python.exe" -c "import sessionsync; print('session sync ok')"
+          if ($LASTEXITCODE -ne 0) { exit 1 }

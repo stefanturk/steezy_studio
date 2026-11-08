@@ -235,6 +235,7 @@ def main():
 
     api = Api()
     platform_paths.windows_app_identity("studio")
+    platform_paths.use_private_git()
     window = webview.create_window(APP_NAME, UI_FILE, js_api=api, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1],
                                    min_size=(520, 420))
     ico = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icon.ico")
