@@ -61,6 +61,31 @@ def engine_python() -> Optional[str]:
     return p if os.access(p, os.X_OK) else None
 
 
+def constraint_args() -> list:
+    """["-c", <engine>/constraints.txt] so pip can't move a shared package off
+    the pinned set. The engine's copy is refreshed from the Studio clone each
+    time (that is how a changed pin reaches tools whose build scripts only know
+    the engine folder); with neither, no constraint rather than a failed install."""
+    dest = os.path.join(platform_paths.engine_dir(), "constraints.txt")
+    st = registry.studio_path()
+    src = os.path.join(st, "constraints.txt") if st else ""
+    try:
+        if src and os.path.exists(src):
+            with open(src, "rb") as f:
+                want = f.read()
+            have = None
+            if os.path.exists(dest):
+                with open(dest, "rb") as f:
+                    have = f.read()
+            if want != have:
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with open(dest, "wb") as f:
+                    f.write(want)
+    except OSError:
+        pass
+    return ["-c", dest] if os.path.exists(dest) else []
+
+
 def default_refresh(tool: registry.Tool) -> tuple:
     """pip-install the tool's packages into the engine Python. On a Mac that is
     requirements.txt (the build script does the rest); on Windows there is no
@@ -72,6 +97,7 @@ def default_refresh(tool: registry.Tool) -> tuple:
     # --no-warn-script-location: the engine's Scripts folder is never on PATH and
     # needn't be (tools run as `python -m`), so pip's PATH warning is only noise.
     pip = [py, "-m", "pip", "install", "--quiet", "--prefer-binary", "--upgrade", "--no-warn-script-location"]
+    pip += constraint_args()
     steps = []
     files = (tool.windows_requirements or ["requirements.txt"]) if platform_paths.is_windows() else ["requirements.txt"]
     for name in files:

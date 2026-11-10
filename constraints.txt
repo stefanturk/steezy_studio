@@ -1,0 +1,21 @@
+# The one set of package versions every Steezy Studio tool runs on.
+#
+# All tools share one engine Python, so whichever tool installs last decides
+# what everybody gets. Every install (Studio's updater, each tool's build and
+# setup script) passes this file as `pip install -c`, which stops one tool from
+# upgrading a package another tool depends on. A constraint only limits
+# versions; it never installs anything by itself.
+#
+# Why these: Movie Maker's font measuring breaks on PyObjC 13; Beat Thief,
+# Movie Maker and the Loader were tested together on exactly these.
+numpy==1.26.4
+scipy==1.13.1
+pillow==11.2.1
+pywebview==6.2.1
+pyobjc-core==12.0
+pyobjc-framework-Cocoa==12.0
+pyobjc-framework-Quartz==12.0
+pyobjc-framework-Security==12.0
+pyobjc-framework-UniformTypeIdentifiers==12.0
+pyobjc-framework-WebKit==12.0
+pytest<9

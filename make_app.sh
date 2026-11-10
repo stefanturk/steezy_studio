@@ -28,7 +28,9 @@ PYTHON="${PYTHON:-$ENGINE/python/bin/python3}"
 if ! "$PYTHON" -c 'import sys; assert sys.version_info >= (3, 12)' >/dev/null 2>&1; then
     "$REPO/engine/setup.sh"
 fi
-"$PYTHON" -m pip install --quiet --prefer-binary --upgrade -r "$REPO/requirements.txt"
+# The shared pin set: copied beside the engine so every tool's build can find it.
+cp "$REPO/constraints.txt" "$ENGINE/constraints.txt"
+"$PYTHON" -m pip install --quiet --prefer-binary --upgrade -c "$ENGINE/constraints.txt" -r "$REPO/requirements.txt"
 FFMPEG_DIR="$ENGINE/bin"
 ARCH="$("$PYTHON" -c 'import platform; print(platform.machine())')"
 

@@ -131,7 +131,9 @@ function New-Shortcut($Name, $Target, $Arguments, $WorkDir) {
 # The Studio window itself (pythonw = no console flash).
 if (Test-Path $Py) {
     Say 'Setting up the Studio window'
-    & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location -r (Join-Path $Dest 'requirements.txt')
+    Copy-Item (Join-Path $Dest 'constraints.txt') (Join-Path $Engine 'constraints.txt') -Force -ErrorAction SilentlyContinue
+    $cArg = if (Test-Path (Join-Path $Engine 'constraints.txt')) { @('-c', (Join-Path $Engine 'constraints.txt')) } else { @() }
+    & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location @cArg -r (Join-Path $Dest 'requirements.txt')
     $pyw = Join-Path $Engine 'python\pythonw.exe'
     New-Shortcut 'Steezy Studio' $pyw '-m studio.gui' $Dest
     Note 'Start menu: Steezy Studio'
@@ -179,11 +181,11 @@ foreach ($id in $want) {
             $req = Join-Path $dir $r
             if (-not (Test-Path $req)) { continue }
             if ($r -ne 'requirements.txt') { Note "Installing $r (this can be a big download)..." }
-            & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location -r $req
+            & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location @cArg -r $req
             if ($LASTEXITCODE -ne 0) { $pipOk = $false }
         }
         if ($t.windows_pip_editable) {
-            & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location -e $dir
+            & $Py -m pip install --quiet --prefer-binary --upgrade --no-warn-script-location @cArg -e $dir
             if ($LASTEXITCODE -ne 0) { $pipOk = $false }
         }
         if (-not $pipOk) { Note "Some packages for $id didn't install; run this line again to retry."; $Failed += $id }

@@ -213,3 +213,32 @@ def test_api_install_crash_never_leaves_it_spinning(tmp_path):
     api.install_tool("bt")
     s = _wait(api)
     assert s["results"][0]["status"] == installer.INSTALL_FAILED and "Unexpected" in s["results"][0]["message"]
+
+
+# ---- the shared pin set
+
+def test_refresh_passes_the_engines_constraints_and_syncs_them_from_the_studio_clone(tmp_path, monkeypatch):
+    root = tmp_path / "tools"; d = root / "bt"; d.mkdir(parents=True); (d / "requirements.txt").write_text("")
+    _fake_engine(tmp_path, monkeypatch)
+    eng = tmp_path / "engine"; monkeypatch.setenv("STEEZY_ENGINE_DIR", str(eng))
+    studio = tmp_path / "studio"; (studio / ".git").mkdir(parents=True); (studio / "constraints.txt").write_text("numpy==1.26.4\n")
+    monkeypatch.setattr(registry, "studio_path", lambda: str(studio))
+    calls = []
+    monkeypatch.setattr(updater, "_run", lambda cmd, cwd, timeout=0, env=None: (calls.append(cmd), (0, ""))[1])
+    assert updater.default_refresh(_tool(tmp_path, root))[0]
+    assert ["-c", str(eng / "constraints.txt")] == calls[0][calls[0].index("-c"):calls[0].index("-c") + 2]
+    assert (eng / "constraints.txt").read_text() == "numpy==1.26.4\n"
+    (studio / "constraints.txt").write_text("numpy==1.26.4\nscipy==1.13.1\n")     # a changed pin reaches the engine
+    updater.default_refresh(_tool(tmp_path, root))
+    assert "scipy" in (eng / "constraints.txt").read_text()
+
+
+def test_refresh_without_any_constraints_file_adds_no_flag(tmp_path, monkeypatch):
+    root = tmp_path / "tools"; d = root / "bt"; d.mkdir(parents=True); (d / "requirements.txt").write_text("")
+    _fake_engine(tmp_path, monkeypatch)
+    monkeypatch.setenv("STEEZY_ENGINE_DIR", str(tmp_path / "engine"))
+    monkeypatch.setattr(registry, "studio_path", lambda: None)
+    calls = []
+    monkeypatch.setattr(updater, "_run", lambda cmd, cwd, timeout=0, env=None: (calls.append(cmd), (0, ""))[1])
+    assert updater.default_refresh(_tool(tmp_path, root))[0]
+    assert "-c" not in calls[0]
