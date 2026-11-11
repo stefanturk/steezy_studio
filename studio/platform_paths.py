@@ -47,6 +47,19 @@ def python_in(engine: str, windowed: bool = False) -> str:
     return posixpath.join(engine, "python", "bin", "python3")
 
 
+def apps_dir() -> str:
+    """Where a Mac app gets built: the main /Applications folder (where people
+    look for apps and where Launchpad shows them) when this user can write to
+    it, which an admin account can, else the ~/Applications in their home folder.
+    STEEZY_APPS_DIR overrides it (tests, and anyone who wants it elsewhere)."""
+    d = os.environ.get("STEEZY_APPS_DIR")
+    if d:
+        return d
+    if os.access("/Applications", os.W_OK):
+        return "/Applications"
+    return os.path.expanduser("~/Applications")
+
+
 def os_name() -> str:
     """The registry's word for this OS: "windows" or "mac"."""
     return "windows" if is_windows() else "mac"

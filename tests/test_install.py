@@ -34,7 +34,7 @@ def world(tmp_path):
     home = tmp_path / "home"
     home.mkdir()
     env = dict(os.environ, HOME=str(home), STEEZY_REPO_BASE=str(base), STEEZY_SKIP_ENGINE="1",
-               STEEZY_NO_GH="1", STEEZY_ENGINE_DIR=str(home / "state" / "engine"),
+               STEEZY_NO_GH="1", STEEZY_APPS_DIR=str(home / "apps"), STEEZY_ENGINE_DIR=str(home / "state" / "engine"),
                STEEZY_TOOLS_DIR=str(home / "tools"), STEEZY_INSTALL_DEST=str(home / "studio"))
     return home, env
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build "Steezy Studio.app" - the double-clickable launcher.
 #
-#   ./make_app.sh              -> builds into ~/Applications
+#   ./make_app.sh              -> builds into /Applications (or ~/Applications if that isn't writable)
 #   ./make_app.sh /some/dir    -> builds somewhere else
 #
 # Same reasons as Beat Thief's make_app.sh: the bundle carries a copy of the
@@ -12,7 +12,9 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST="${1:-$HOME/Applications}"
+if [ -n "${1:-}" ]; then DEST="$1"
+elif [ -w /Applications ]; then DEST="/Applications"
+else DEST="$HOME/Applications"; fi
 APP="$DEST/Steezy Studio.app"
 
 case "$DEST" in
@@ -49,6 +51,12 @@ fi
 if [ "$DEST" != "/Applications" ] && [ -e "/Applications/Steezy Studio.app" ]; then
     echo "Removing a stray copy at /Applications/Steezy Studio.app" >&2
     rm -rf "/Applications/Steezy Studio.app"
+fi
+
+# Earlier builds went into ~/Applications; a second copy there is how the Dock goes stale.
+if [ "$DEST" != "$HOME/Applications" ] && [ -e "$HOME/Applications/Steezy Studio.app" ]; then
+    echo "Removing the old copy at ~/Applications/Steezy Studio.app" >&2
+    rm -rf "$HOME/Applications/Steezy Studio.app"
 fi
 
 # Remember which clone this app came from, so the app can update itself from it.

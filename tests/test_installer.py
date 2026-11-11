@@ -267,3 +267,27 @@ def test_phases_are_reported_while_installing(tmp_path, monkeypatch):
         os.makedirs(os.path.join(tool.path, ".git")); return True, ""
     installer.install_tool(t, clone=clone, refresh=lambda x: (True, ""), build=lambda x: (True, ""))
     assert seen == ["Downloading", updater.PHASE_PACKAGES, "Building the app"]
+
+
+def test_apps_go_in_the_main_applications_folder_when_writable(monkeypatch):
+    from studio import platform_paths
+    monkeypatch.delenv("STEEZY_APPS_DIR", raising=False)
+    monkeypatch.setattr(platform_paths.os, "access", lambda p, m: True)
+    assert platform_paths.apps_dir() == "/Applications"
+    monkeypatch.setattr(platform_paths.os, "access", lambda p, m: False)
+    assert platform_paths.apps_dir() == os.path.expanduser("~/Applications")
+    monkeypatch.setenv("STEEZY_APPS_DIR", "/x")
+    assert platform_paths.apps_dir() == "/x"
+
+
+def test_build_passes_the_apps_folder_and_removes_the_old_home_copy(tmp_path, monkeypatch):
+    home, apps = tmp_path / "home", tmp_path / "apps"
+    (home / "Applications" / "BT.app").mkdir(parents=True)
+    root = tmp_path / "tools"; (root / "bt").mkdir(parents=True)
+    (root / "bt" / "make_app.sh").write_text('#!/bin/bash\nmkdir -p "$1/BT.app"\n')
+    os.chmod(root / "bt" / "make_app.sh", 0o755)
+    monkeypatch.setenv("HOME", str(home)); monkeypatch.setenv("STEEZY_APPS_DIR", str(apps))
+    monkeypatch.setattr(updater.platform_paths, "is_windows", lambda: False)
+    t = _tool(tmp_path, str(root))
+    assert updater.default_build(t)[0]
+    assert (apps / "BT.app").is_dir() and not (home / "Applications" / "BT.app").exists()

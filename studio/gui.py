@@ -21,7 +21,7 @@ from studio import installer, invite, platform_paths, registry, share, updater
 UI_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "index.html")
 APP_NAME = "Steezy Studio"
 WINDOW_SIZE = (760, 640)
-APP_DIRS = (os.path.expanduser("~/Applications"), "/Applications")
+APP_DIRS = ("/Applications", os.path.expanduser("~/Applications"))   # builds go to /Applications now; the old home one is still found
 
 
 def _git(path: str, *args: str) -> Optional[str]:

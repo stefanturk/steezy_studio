@@ -12,6 +12,7 @@ Nothing here raises. Every outcome is a Result.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -156,8 +157,21 @@ def default_build(tool: registry.Tool) -> tuple:
     py = engine_python()
     if py:
         env["PYTHON"] = py
-    code, out = _run(tool.build, tool.path, env=env)
+    dest = platform_paths.apps_dir()
+    code, out = _run(list(tool.build) + [dest], tool.path, env=env)
+    if code == 0:
+        _remove_old_copy(tool, dest)
     return code == 0, out[-400:]
+
+
+def _remove_old_copy(tool: registry.Tool, dest: str) -> None:
+    """Earlier builds went into ~/Applications. Now the app is in `dest`, a second
+    copy there would sit beside it, and the Dock stays pinned to whichever one it
+    was dragged from, so the old one goes."""
+    old = os.path.join(os.path.expanduser("~/Applications"), tool.app)
+    if os.path.abspath(os.path.dirname(old)) != os.path.abspath(dest) and os.path.isdir(old) \
+            and os.path.isdir(os.path.join(dest, tool.app)):
+        shutil.rmtree(old, ignore_errors=True)
 
 
 def _requirements_stamp(tool: registry.Tool) -> str:

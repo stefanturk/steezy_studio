@@ -24,6 +24,11 @@ TOOLS="${STEEZY_TOOLS_DIR:-$HOME/steezy_tools}"
 ENGINE="${STEEZY_ENGINE_DIR:-$HOME/Library/Application Support/Steezy Studio/engine}"
 STATE="$(dirname "$ENGINE")"
 GH_VERSION="2.103.3"
+# Apps go in the main /Applications folder when this account can write there
+# (any admin account can), else the one in the home folder.
+if [ -n "${STEEZY_APPS_DIR:-}" ]; then APPS="$STEEZY_APPS_DIR"
+elif [ -w /Applications ]; then APPS="/Applications"
+else APPS="$HOME/Applications"; fi
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
@@ -75,7 +80,7 @@ printf '%s\n' "$TOOLS" > "$STATE/tools_dir"
 
 if [ "${STEEZY_SKIP_BUILD:-}" != 1 ]; then
     say "Building Steezy Studio.app"
-    (cd "$DEST" && ./make_app.sh) || note "The app build failed; run ./make_app.sh in $DEST to see why."
+    (cd "$DEST" && ./make_app.sh "$APPS") || note "The app build failed; run ./make_app.sh in $DEST to see why."
 fi
 
 PYBIN="$ENGINE/python/bin/python3"
@@ -137,7 +142,7 @@ install_tool() {  # id folder repo private build
         fi
     fi
     if [ "${STEEZY_SKIP_BUILD:-}" != 1 ]; then
-        (cd "$dir" && $build) || { note "Built $id with errors; open Steezy Studio and press Update all to retry."; FAILED="$FAILED $id"; }
+        (cd "$dir" && $build "$APPS") || { note "Built $id with errors; open Steezy Studio and press Update all to retry."; FAILED="$FAILED $id"; }
     fi
 }
 
@@ -156,6 +161,6 @@ EOF2
 fi
 
 say "Done"
-note "Open it: ~/Applications/Steezy Studio.app (drag it to the Dock)."
+note "Open it: $APPS/Steezy Studio.app (drag it to the Dock)."
 [ -n "$FAILED" ] && note "Not installed:$FAILED"
 exit 0
