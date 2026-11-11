@@ -87,10 +87,10 @@ def constraint_args() -> list:
 
 
 def default_refresh(tool: registry.Tool) -> tuple:
-    """pip-install the tool's packages into the engine Python. On a Mac that is
-    requirements.txt (the build script does the rest); on Windows there is no
-    build step, so it is every file in windows_requirements, then `pip install
-    -e .` if the tool asks for it. (True, message) on success."""
+    """pip-install the tool's packages into the engine Python: every file in the
+    tool's requirements list (so Beat Thief gets its instrument splitter on a Mac
+    too), then, on Windows only, `pip install -e .` if the tool asks for it.
+    (True, message) on success."""
     py = engine_python()
     if not py:
         return True, "no engine Python, so no packages to refresh"
@@ -99,7 +99,7 @@ def default_refresh(tool: registry.Tool) -> tuple:
     pip = [py, "-m", "pip", "install", "--quiet", "--prefer-binary", "--upgrade", "--no-warn-script-location"]
     pip += constraint_args()
     steps = []
-    files = (tool.windows_requirements or ["requirements.txt"]) if platform_paths.is_windows() else ["requirements.txt"]
+    files = tool.windows_requirements or ["requirements.txt"]
     for name in files:
         if os.path.exists(os.path.join(tool.path, name)):
             steps.append(pip + ["-r", name])

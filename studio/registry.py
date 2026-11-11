@@ -75,8 +75,8 @@ class Tool:
     platforms: list
     private: bool = False
     windows_run: list = None      # argv after pythonw to start the tool on Windows
-    # Windows has no build step, so pip does all of it: these requirement files in
-    # order, then `pip install -e .` if set. (On a Mac the tool's own build script decides.)
+    # pip installs these requirement files in order on every platform (Beat Thief's
+    # splitter included); on Windows, which has no build step, then `pip install -e .` if set.
     windows_requirements: list = None
     windows_pip_editable: bool = False
     state: str = READY

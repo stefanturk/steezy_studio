@@ -124,7 +124,7 @@ def test_windows_refresh_installs_every_listed_file_then_editable(tmp_path, monk
     assert tails == [["-r", "requirements.txt"], ["-r", "requirements-splitter.txt"], ["-e", "."]]
 
 
-def test_mac_refresh_is_unchanged_requirements_only(tmp_path, monkeypatch):
+def test_mac_refresh_installs_every_requirements_file_but_not_editable(tmp_path, monkeypatch):
     root = tmp_path / "tools"; d = root / "bt"; d.mkdir(parents=True)
     (d / "requirements.txt").write_text(""); (d / "requirements-splitter.txt").write_text("")
     _fake_engine(tmp_path, monkeypatch)
@@ -133,7 +133,7 @@ def test_mac_refresh_is_unchanged_requirements_only(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(updater, "_run", lambda cmd, cwd, timeout=0, env=None: (calls.append(cmd), (0, ""))[1])
     updater.default_refresh(t)
-    assert [c[-2:] for c in calls] == [["-r", "requirements.txt"]]
+    assert [c[-2:] for c in calls] == [["-r", "requirements.txt"], ["-r", "requirements-splitter.txt"]]
 
 
 def test_refresh_failure_is_reported(tmp_path, monkeypatch):
