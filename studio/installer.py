@@ -59,6 +59,7 @@ def install_tool(tool: registry.Tool, *, clone: Callable = default_clone,
     if tool.state not in (registry.NOT_INSTALLED, registry.NO_ACCESS):
         return r(INSTALL_FAILED, tool.message)
 
+    updater._phase("Downloading")
     ok, out = clone(tool)
     if not ok or not os.path.isdir(os.path.join(tool.path, ".git")):
         if tool.private:
@@ -67,11 +68,13 @@ def install_tool(tool: registry.Tool, *, clone: Callable = default_clone,
 
     # A half install is taken back out, so the tile shows Install again and a
     # retry starts clean (Update all would think it was finished).
+    updater._phase(updater.PHASE_PACKAGES)
     ok, out = refresh(tool)
     if not ok:
         _remove_clone(tool.path)
         return r(INSTALL_FAILED, "Some of %s's packages didn't install, so nothing was kept. Press Install to try again. (%s)"
                  % (tool.name, out[-200:]))
+    updater._phase("Building the app")
     ok, out = build(tool)
     if not ok:
         _remove_clone(tool.path)

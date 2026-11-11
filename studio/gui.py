@@ -73,6 +73,9 @@ class Api:
         self._installing: Optional[str] = None
         self._working_on: Optional[str] = None   # the tool an update is on right now
         self._queued: set = set()                # tools an update hasn't reached yet
+        self._phase = ""                         # what the current update/install step is doing
+        self._total = 0                          # tools in this run, for the overall bar
+        updater.phase_hook = lambda text: setattr(self, "_phase", text)
 
     def _tools(self):
         return registry.load_tools(self._registry_path, self._root)
@@ -84,6 +87,7 @@ class Api:
                     "usable": t.usable, "version": None, "dirty": False, "behind": None, "app": None,
                     "installable": t.state in (registry.NOT_INSTALLED, registry.NO_ACCESS),
                     "installing": self._installing == t.id,
+                    "phase": self._phase if (self._installing == t.id or self._working_on == t.id) else "",
                     "updating": self._working_on == t.id, "waiting": t.id in self._queued,
                     "openable": False}
             if t.usable:
@@ -170,7 +174,7 @@ class Api:
         with self._lock:
             if self._running:
                 return {"started": False}
-            self._running, self._results = True, []
+            self._running, self._results, self._phase = True, [], ""
         threading.Thread(target=self._do_update, daemon=True).start()
         return {"started": True}
 
@@ -181,9 +185,11 @@ class Api:
     def _do_update(self):
         tools, studio = self._tools(), self._studio()
         self._queued = {t.id for t in tools + ([studio] if studio else []) if t.usable}
+        self._total = len(self._queued)
 
         def started(t):
             self._queued.discard(t.id)
+            self._phase = ""
             self._working_on = t.id
 
         def finished(r):
@@ -203,7 +209,8 @@ class Api:
             self._running = False
 
     def update_status(self) -> dict:
-        return {"running": self._running, "results": list(self._results), "installing": self._installing}
+        return {"running": self._running, "results": list(self._results), "installing": self._installing,
+                "total": self._total or 1, "done": len(self._results), "phase": self._phase}
 
     # ---- Install one tool: same worker and polling as Update all, so only one
     # of the two runs at a time and a 2GB download never freezes the window.
@@ -215,6 +222,7 @@ class Api:
             if self._running:
                 return {"started": False, "message": "Wait for the current update or install to finish."}
             self._running, self._results, self._installing = True, [], tool.id
+            self._total, self._phase = 1, ""
         threading.Thread(target=self._do_install, args=(tool,), daemon=True).start()
         return {"started": True, "message": ""}
 

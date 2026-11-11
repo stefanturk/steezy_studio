@@ -37,6 +37,20 @@ class Result:
     message: str = ""
 
 
+phase_hook: Optional[Callable[[str], None]] = None   # the Studio's window sets this to show what it's doing
+
+
+def _phase(text: str) -> None:
+    if phase_hook:
+        try:
+            phase_hook(text)
+        except Exception:
+            pass
+
+
+PHASE_PACKAGES = "Installing packages (the big ones take a while)"
+
+
 def _run(cmd: list, cwd: str, timeout: int = 1800, env: Optional[dict] = None):
     if cmd and cmd[0] == "git":
         platform_paths.use_private_git()  # Windows without Git: install.ps1's MinGit
@@ -193,6 +207,7 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
         return r(UNAVAILABLE, tool.message)
 
     if fetch and not dry_run:
+        _phase("Checking for updates")
         code, out = _git(tool.path, "fetch", "--quiet")
         if code != 0:
             return r(NO_NETWORK, "Couldn't reach GitHub, so %s was left as it is." % tool.name)
@@ -216,6 +231,7 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
                 # files (a newly required package, or an install from before we tracked it).
                 if dry_run:
                     return r(WOULD_UPDATE, "Would install missing packages.")
+                _phase(PHASE_PACKAGES)
                 ok, out = refresh(tool)
                 if not ok:
                     return r(BUILD_FAILED, "Couldn't install %s's packages. %s" % (tool.name, out))
@@ -227,14 +243,17 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
         return r(WOULD_UPDATE, "%d new commit(s) would be pulled." % behind if behind else "Would build the app.")
 
     if behind:
+        _phase("Downloading the new code")
         code, out = _git(tool.path, "pull", "--ff-only", "--quiet", timeout=300)
         if code != 0:
             return r(SKIPPED_DIVERGED, "Couldn't fast-forward %s. Left alone. (%s)" % (tool.name, out[-200:]))
+    _phase(PHASE_PACKAGES)
     ok, out = refresh(tool)
     if not ok:
         return r(BUILD_FAILED, "Updated the code but couldn't refresh packages. %s" % out)
     if refresh is default_refresh:
         _record_packages(tool)
+    _phase("Building the app")
     ok, out = build(tool)
     if not ok:
         return r(BUILD_FAILED, "Updated the code but the rebuild failed, so the old app is still there. %s" % out)

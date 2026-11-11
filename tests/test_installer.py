@@ -254,3 +254,16 @@ def test_packages_are_stale_until_recorded_and_again_when_requirements_change(tm
     assert not updater._packages_stale(t)
     (d / "requirements.txt").write_text("a\nb\n")
     assert updater._packages_stale(t)          # a requirement was added
+
+
+def test_phases_are_reported_while_installing(tmp_path, monkeypatch):
+    root = tmp_path / "tools"; root.mkdir()
+    _fake_engine(tmp_path, monkeypatch)
+    seen = []
+    monkeypatch.setattr(updater, "phase_hook", seen.append)
+    t = _tool(tmp_path, root)
+    t.state = registry.NOT_INSTALLED
+    def clone(tool):
+        os.makedirs(os.path.join(tool.path, ".git")); return True, ""
+    installer.install_tool(t, clone=clone, refresh=lambda x: (True, ""), build=lambda x: (True, ""))
+    assert seen == ["Downloading", updater.PHASE_PACKAGES, "Building the app"]
