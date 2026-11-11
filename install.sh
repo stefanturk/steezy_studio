@@ -5,6 +5,10 @@
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/stefanturk/steezy_studio/main/install.sh)"
 #   bash -c "$(curl -fsSL .../install.sh)" _ beat_thief session_sync
 #
+# Add --songs-only to leave out Beat Thief's instrument splitter (a 2GB
+# download); delete ~/Library/Application Support/Steezy Studio/songs_only
+# and press Update all to add it later.
+#
 # No tool names = the Studio only; then pick tools inside the app, or name them
 # here. `all` installs every tool. Run it again any time to update.
 #
@@ -38,13 +42,48 @@ if [ "${1:-}" = "--list" ]; then
     exit 0
 fi
 
-WANT="$*"
+SONGS_ONLY=0
+ARGS=()
+for a in "$@"; do
+    case "$a" in
+        --songs-only) SONGS_ONLY=1 ;;
+        --command-line-tools) GET_CLT=1 ;;
+        *) ARGS+=("$a") ;;
+    esac
+done
+WANT="${ARGS[*]:-}"
 say "Steezy Studio"
+
+# The fallback when Apple's install window says the software "can't be found" /
+# "isn't available": ask softwareupdate for the same package from the Terminal.
+# Needs the Mac's password (sudo), which it asks for here.
+if [ "${GET_CLT:-}" = 1 ]; then
+    trigger=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+    touch "$trigger"
+    label="$(softwareupdate -l 2>/dev/null | grep -E '^\* Label: Command Line Tools' | sed 's/^\* Label: //' | sort -V | tail -1)"
+    if [ -z "$label" ]; then
+        rm -f "$trigger"
+        note "Apple isn't offering the command line tools right now. Download them at"
+        note "developer.apple.com/download/all (search 'Command Line Tools'), open the"
+        note ".dmg, run the installer, then run the install line again."
+        exit 1
+    fi
+    note "Installing: $label (this asks for your Mac password, and takes a few minutes)"
+    sudo softwareupdate -i "$label" --verbose; rm -f "$trigger"
+    note "Done. Run the install line again (without --command-line-tools)."
+    exit 0
+fi
 
 if ! git --version >/dev/null 2>&1; then
     note "macOS needs its command line tools first (this is where git comes"
     note "from). A window is opening now - click Install, wait for it to"
     note "finish, then run this same line again."
+    note ""
+    note "If that window says the software can't be found or isn't available"
+    note "(it happens on some Macs; it's Apple's side), close it and run the same"
+    note "line again with --command-line-tools on the end, e.g."
+    note "  bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/stefanturk/steezy_studio/main/install.sh)\" _ --command-line-tools"
+    note "That fetches the same tools from the Terminal and asks for your password."
     xcode-select --install 2>/dev/null || true
     exit 1
 fi
@@ -72,6 +111,11 @@ fi
 
 if [ "${STEEZY_SKIP_ENGINE:-}" != 1 ]; then
     "$DEST/engine/setup.sh" || { note "The engine setup failed."; exit 1; }
+fi
+
+# Remember a songs-only choice, so the Studio's updates leave the splitter out too.
+if [ "$SONGS_ONLY" = 1 ]; then
+    mkdir -p "$STATE" && : > "$STATE/songs_only"
 fi
 
 # Tell the app where tools live (it reads this when no env var is set).

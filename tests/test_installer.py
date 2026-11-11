@@ -291,3 +291,16 @@ def test_build_passes_the_apps_folder_and_removes_the_old_home_copy(tmp_path, mo
     t = _tool(tmp_path, str(root))
     assert updater.default_build(t)[0]
     assert (apps / "BT.app").is_dir() and not (home / "Applications" / "BT.app").exists()
+
+
+def test_songs_only_leaves_the_splitter_requirements_out(tmp_path, monkeypatch):
+    t = _tool(tmp_path, str(tmp_path / "tools"), windows_requirements=["requirements.txt", "requirements-splitter.txt"])
+    monkeypatch.setenv("STEEZY_ENGINE_DIR", str(tmp_path / "state" / "engine"))
+    monkeypatch.delenv("STEEZY_SONGS_ONLY", raising=False)
+    assert updater.requirement_files(t) == ["requirements.txt", "requirements-splitter.txt"]
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state" / "songs_only").write_text("")
+    assert updater.requirement_files(t) == ["requirements.txt"]
+    (tmp_path / "state" / "songs_only").unlink()
+    monkeypatch.setenv("STEEZY_SONGS_ONLY", "1")
+    assert updater.requirement_files(t) == ["requirements.txt"]

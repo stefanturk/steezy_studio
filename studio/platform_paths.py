@@ -47,6 +47,16 @@ def python_in(engine: str, windowed: bool = False) -> str:
     return posixpath.join(engine, "python", "bin", "python3")
 
 
+def songs_only() -> bool:
+    """True when this computer was set up without Beat Thief's instrument splitter
+    (install.sh --songs-only): the Studio then leaves its 2GB of packages out of
+    installs and updates. STEEZY_SONGS_ONLY=1 or a `songs_only` file next to the
+    engine folder; delete the file to get the splitter on the next Update all."""
+    if os.environ.get("STEEZY_SONGS_ONLY") == "1":
+        return True
+    return os.path.exists(os.path.join(os.path.dirname(engine_dir()), "songs_only"))
+
+
 def apps_dir() -> str:
     """Where a Mac app gets built: the main /Applications folder (where people
     look for apps and where Launchpad shows them) when this user can write to

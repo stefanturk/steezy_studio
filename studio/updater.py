@@ -101,6 +101,15 @@ def constraint_args() -> list:
     return ["-c", dest] if os.path.exists(dest) else []
 
 
+def requirement_files(tool: registry.Tool) -> list:
+    """The requirement files to install for this tool: its list, minus the
+    instrument splitter's when this computer was set up songs-only."""
+    files = list(tool.windows_requirements or ["requirements.txt"])
+    if platform_paths.songs_only():
+        files = [f for f in files if "splitter" not in f]
+    return files
+
+
 def default_refresh(tool: registry.Tool) -> tuple:
     """pip-install the tool's packages into the engine Python: every file in the
     tool's requirements list (so Beat Thief gets its instrument splitter on a Mac
@@ -114,8 +123,7 @@ def default_refresh(tool: registry.Tool) -> tuple:
     pip = [py, "-m", "pip", "install", "--quiet", "--prefer-binary", "--upgrade", "--no-warn-script-location"]
     pip += constraint_args()
     steps = []
-    files = tool.windows_requirements or ["requirements.txt"]
-    for name in files:
+    for name in requirement_files(tool):
         if os.path.exists(os.path.join(tool.path, name)):
             steps.append(pip + ["-r", name])
     if platform_paths.is_windows() and tool.windows_pip_editable:
@@ -182,7 +190,7 @@ def _requirements_stamp(tool: registry.Tool) -> str:
 def _requirements_hash(tool: registry.Tool) -> str:
     import hashlib
     h = hashlib.sha256()
-    for name in (tool.windows_requirements or ["requirements.txt"]):
+    for name in requirement_files(tool):
         try:
             with open(os.path.join(tool.path, name), "rb") as f:
                 h.update(name.encode() + b"\0" + f.read())

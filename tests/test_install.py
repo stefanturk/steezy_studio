@@ -86,3 +86,18 @@ def test_all_keyword(world):
 def test_list():
     r = subprocess.run(["bash", os.path.join(ROOT, "install.sh"), "--list"], capture_output=True, text=True)
     assert "beat_thief" in r.stdout
+
+
+def test_songs_only_flag_is_remembered_and_not_taken_for_a_tool(world):
+    home, env = world
+    r = run(env, "--songs-only", "beat_thief")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (home / "state" / "songs_only").exists()
+    assert (home / "tools" / "beat_thief" / ".built").exists()
+    assert "Unknown tool" not in r.stdout + r.stderr
+
+
+def test_without_the_flag_nothing_is_remembered(world):
+    home, env = world
+    assert run(env).returncode == 0
+    assert not (home / "state" / "songs_only").exists()
