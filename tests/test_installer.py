@@ -242,3 +242,15 @@ def test_refresh_without_any_constraints_file_adds_no_flag(tmp_path, monkeypatch
     monkeypatch.setattr(updater, "_run", lambda cmd, cwd, timeout=0, env=None: (calls.append(cmd), (0, ""))[1])
     assert updater.default_refresh(_tool(tmp_path, root))[0]
     assert "-c" not in calls[0]
+
+
+def test_packages_are_stale_until_recorded_and_again_when_requirements_change(tmp_path, monkeypatch):
+    root = tmp_path / "tools"; d = root / "bt"; d.mkdir(parents=True)
+    (d / "requirements.txt").write_text("a\n")
+    _fake_engine(tmp_path, monkeypatch)
+    t = _tool(tmp_path, root)
+    assert updater._packages_stale(t)          # never recorded (installs from before tracking)
+    updater._record_packages(t)
+    assert not updater._packages_stale(t)
+    (d / "requirements.txt").write_text("a\nb\n")
+    assert updater._packages_stale(t)          # a requirement was added

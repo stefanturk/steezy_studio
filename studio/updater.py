@@ -146,6 +146,45 @@ def default_build(tool: registry.Tool) -> tuple:
     return code == 0, out[-400:]
 
 
+def _requirements_stamp(tool: registry.Tool) -> str:
+    """Where we note which requirement files a tool's packages were last installed from."""
+    return os.path.join(platform_paths.engine_dir(), "refreshed", tool.id + ".sha")
+
+
+def _requirements_hash(tool: registry.Tool) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    for name in (tool.windows_requirements or ["requirements.txt"]):
+        try:
+            with open(os.path.join(tool.path, name), "rb") as f:
+                h.update(name.encode() + b"\0" + f.read())
+        except OSError:
+            pass
+    return h.hexdigest()
+
+
+def _packages_stale(tool: registry.Tool) -> bool:
+    """True when the tool's requirement files differ from what was last installed
+    (or nothing was recorded, e.g. installs made before this check existed)."""
+    if not engine_python():
+        return False
+    try:
+        with open(_requirements_stamp(tool)) as f:
+            return f.read().strip() != _requirements_hash(tool)
+    except OSError:
+        return True
+
+
+def _record_packages(tool: registry.Tool) -> None:
+    try:
+        p = _requirements_stamp(tool)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w") as f:
+            f.write(_requirements_hash(tool))
+    except OSError:
+        pass
+
+
 def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = False,
                 refresh: Callable = default_refresh, build: Callable = default_build,
                 app_exists: Callable[[registry.Tool], bool] = lambda t: True) -> Result:
@@ -172,6 +211,16 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
         if ahead:
             return r(SKIPPED_AHEAD, "%s has commits that aren't on GitHub yet. Nothing to update." % tool.name)
         if app_exists(tool):
+            if refresh is default_refresh and _packages_stale(tool):
+                # Same code, but its packages were never installed from these requirement
+                # files (a newly required package, or an install from before we tracked it).
+                if dry_run:
+                    return r(WOULD_UPDATE, "Would install missing packages.")
+                ok, out = refresh(tool)
+                if not ok:
+                    return r(BUILD_FAILED, "Couldn't install %s's packages. %s" % (tool.name, out))
+                _record_packages(tool)
+                return r(UPDATED, "Installed missing packages.")
             return r(UP_TO_DATE, "Already the latest.")
         # Up to date but never built: fall through to build.
     if dry_run:
@@ -184,6 +233,8 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
     ok, out = refresh(tool)
     if not ok:
         return r(BUILD_FAILED, "Updated the code but couldn't refresh packages. %s" % out)
+    if refresh is default_refresh:
+        _record_packages(tool)
     ok, out = build(tool)
     if not ok:
         return r(BUILD_FAILED, "Updated the code but the rebuild failed, so the old app is still there. %s" % out)
