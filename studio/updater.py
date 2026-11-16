@@ -182,7 +182,21 @@ def _remove_old_copy(tool: registry.Tool, dest: str) -> None:
     old = os.path.join(os.path.expanduser("~/Applications"), tool.app)
     if os.path.abspath(os.path.dirname(old)) != os.path.abspath(dest) and os.path.isdir(old) \
             and os.path.isdir(os.path.join(dest, tool.app)):
+        _repin_dock(old, os.path.join(dest, tool.app))
         shutil.rmtree(old, ignore_errors=True)
+
+
+def _repin_dock(old: str, new: str) -> None:
+    """Point a Dock pin of the old copy at the new one before the old one goes, or the pin turns
+    into a question mark. Mac only; never raises."""
+    if platform_paths.is_windows() or os.environ.get("STEEZY_SKIP_DOCK") == "1":
+        return
+    try:
+        script = os.path.join(registry.studio_path() or "", "build", "dock_repin.py")
+        if os.path.isfile(script):
+            subprocess.run(["/usr/bin/python3", script, old, new], capture_output=True, timeout=30)
+    except Exception:
+        pass
 
 
 def _requirements_stamp(tool: registry.Tool) -> str:

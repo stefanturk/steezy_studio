@@ -15,6 +15,8 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$REPO/build/lib.sh"
 DEST="$(steezy_dest "${1:-}")"
 APP="$DEST/Steezy Studio.app"
+FINAL_APP="$APP"
+APP="$DEST/.$(basename "$FINAL_APP").building"      # built beside, swapped in at the end
 
 case "$DEST" in
     "$HOME"/Desktop/*|"$HOME"/Documents/*|"$HOME"/Downloads/*)
@@ -52,7 +54,6 @@ if [ "$DEST" != "/Applications" ] && [ -e "/Applications/Steezy Studio.app" ]; t
     rm -rf "/Applications/Steezy Studio.app"
 fi
 
-steezy_sweep_old_copy "$DEST" "Steezy Studio"
 
 # Remember which clone this app came from, so the app can update itself from it.
 mkdir -p "$(dirname "$ENGINE")" && printf '%s\n' "$REPO" > "$(dirname "$ENGINE")/studio_dir"
@@ -129,5 +130,11 @@ chmod +x "$APP/Contents/MacOS/Steezy Studio"
 codesign --force --deep --sign "$IDENTITY" "$APP"
 codesign --verify --strict "$APP"
 
+# Swap the finished app in with no gap (a Dock pin that looks while it's half-built shows a ?),
+# then move any old copy's Dock pin across and remove it.
+if declare -F steezy_install_app >/dev/null; then steezy_install_app "$APP" "$FINAL_APP"
+else rm -rf "$FINAL_APP"; mv "$APP" "$FINAL_APP"; fi
+APP="$FINAL_APP"
+declare -F steezy_sweep_old_copy >/dev/null && steezy_sweep_old_copy "$DEST" "Steezy Studio"
 echo "Built $APP"
 echo "Double-click it, or drag it to your Dock."

@@ -1,6 +1,6 @@
 __pycache__/
 *.pyc
 .DS_Store
-build/
+# build/ is tracked: it holds the shared build helpers (lib.sh, appswap.py, dock_repin.py, render_logo.py)
 dist/
 *.app/
