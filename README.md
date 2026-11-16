@@ -1,6 +1,6 @@
 # Steezy Studio
 
-Launcher and shared engine for the family: movie_maker, Ableton Loader, Beat Thief, Session Sync.
+Launcher and shared engine for the family: movie_maker, Ableton Loader, Beat Thief, Session Sync, Stage Lighting (Mac).
 Each tool keeps its own name, folder and repo.
 
 ## Install

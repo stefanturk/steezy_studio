@@ -9,6 +9,8 @@
      "folder": "session_sync", "build": ["./scripts/build_app.sh"], "app": "SessionSync.app", "platforms": ["mac", "windows"],
      "windows_run": ["-m", "sessionsync.ui.app"], "windows_pip_editable": true},
     {"id": "movie_maker", "name": "Movie Maker", "repo": "https://github.com/stefanturk/movie_maker.git",
-     "folder": "movie_maker", "build": ["./make_app.sh"], "app": "Movie Maker.app", "private": true, "platforms": ["mac"]}
+     "folder": "movie_maker", "build": ["./make_app.sh"], "app": "Movie Maker.app", "private": true, "platforms": ["mac"]},
+    {"id": "stage_lighting", "name": "Stage Lighting", "repo": "https://github.com/stefanturk/stage_lighting.git",
+     "folder": "stage_lighting", "build": ["./make_app.sh"], "app": "Stage Lighting.app", "private": true, "platforms": ["mac"]}
   ]
 }

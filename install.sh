@@ -12,7 +12,7 @@
 # No tool names = the Studio only; then pick tools inside the app, or name them
 # here. `all` installs every tool. Run it again any time to update.
 #
-# Tools that are private (Ableton Loader, Movie Maker) need a GitHub account
+# Tools that are private (Ableton Loader, Movie Maker, Stage Lighting) need a GitHub account
 # that Stefan has invited; if you can't reach one it is skipped and the rest
 # still install.
 #
@@ -38,7 +38,7 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
 
 if [ "${1:-}" = "--list" ]; then
-    echo "beat_thief ableton_loader session_sync movie_maker (or: all)"
+    echo "beat_thief ableton_loader session_sync movie_maker stage_lighting (or: all)"
     exit 0
 fi
 

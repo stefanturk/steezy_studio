@@ -24,8 +24,8 @@ def test_windows_command():
 def test_options_cover_every_registry_tool_and_mark_private():
     opts = share.share_options(tools())
     by_id = {r["id"]: r for r in opts["tools"]}
-    assert set(by_id) == {"beat_thief", "ableton_loader", "session_sync", "movie_maker"}
-    assert by_id["ableton_loader"]["private"] and by_id["movie_maker"]["private"]
+    assert set(by_id) == {"beat_thief", "ableton_loader", "session_sync", "movie_maker", "stage_lighting"}
+    assert by_id["ableton_loader"]["private"] and by_id["movie_maker"]["private"] and by_id["stage_lighting"]["private"]
     assert not by_id["beat_thief"]["private"] and not by_id["session_sync"]["private"]
     assert "windows" not in by_id["movie_maker"]["commands"]
     assert "beat_thief" in by_id["beat_thief"]["commands"]["mac"]

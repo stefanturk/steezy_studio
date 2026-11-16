@@ -22,9 +22,9 @@ class T(unittest.TestCase):
     def load(self, obj, **kw):
         return R.load_tools(write(self.d, "r.json", obj), root=self.root, **kw)
 
-    def test_real_registry_loads_four_tools(self):
+    def test_real_registry_loads_all_tools(self):
         tools = R.load_tools(root=self.root)
-        self.assertEqual([t.id for t in tools], ["beat_thief", "ableton_loader", "session_sync", "movie_maker"])
+        self.assertEqual([t.id for t in tools], ["beat_thief", "ableton_loader", "session_sync", "movie_maker", "stage_lighting"])
         self.assertTrue(all(t.state == R.NOT_INSTALLED for t in tools))
 
     def test_ready_when_git_checkout_present(self):

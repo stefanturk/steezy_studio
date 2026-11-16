@@ -22,7 +22,7 @@ def test_dry_run_covers_only_private_tools_and_calls_nothing():
     def boom(_):
         raise AssertionError("must not run")
     res = invite.invite("friend", tools=tools(), runner=boom)
-    assert sorted(r["id"] for r in res) == ["ableton_loader", "movie_maker"]
+    assert sorted(r["id"] for r in res) == ["ableton_loader", "movie_maker", "stage_lighting"]
     assert all(r["ok"] and not r["sent"] for r in res)
 
 

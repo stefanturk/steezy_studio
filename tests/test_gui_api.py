@@ -200,7 +200,7 @@ class ShareApi(unittest.TestCase):
     def test_share_options_payload(self):
         o = self.api.share_options()
         self.assertIn("install.sh", o["studio"]["mac"])
-        self.assertEqual(len(o["tools"]), 4)
+        self.assertEqual(len(o["tools"]), 5)
         self.assertIn(False, [t["private"] for t in o["tools"]])
 
     def test_copy_text_uses_pbcopy(self):
