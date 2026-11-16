@@ -24,6 +24,11 @@ def engine_dir() -> str:
     return os.path.expanduser("~/Library/Application Support/Steezy Studio/engine")
 
 
+def state_dir() -> str:
+    """Studio's own small files (outbox, ids, markers) live next to the engine folder."""
+    return os.path.dirname(engine_dir())
+
+
 def use_private_git(environ=None) -> bool:
     """Windows without Git: install.ps1 may have put a private MinGit in the
     engine folder. Put it on this process's PATH so `git` works for every

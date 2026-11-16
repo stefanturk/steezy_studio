@@ -55,6 +55,17 @@
   #overall { margin:0 24px; display:none; }
   #overall.on { display:block; }
   #overallText { padding:6px 24px 0; font-size:12px; color:var(--dim); min-height:20px; }
+  #fbLink { display:none; padding:0 24px 16px; font-size:12px; color:var(--dim); }
+  #fbLink a { color:var(--amber); cursor:pointer; text-decoration:underline; }
+  #feedback { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; }
+  #feedback.open { display:flex; }
+  #fbbox { background:var(--raised); border:1px solid var(--edge); border-radius:var(--radius); padding:20px 22px;
+           width:min(560px,92vw); display:flex; flex-direction:column; gap:12px; user-select:text; }
+  #fbbox textarea, #fbbox select { width:100%; background:var(--panel); color:var(--ink); border:1px solid var(--edge);
+           border-radius:6px; padding:8px 10px; font:inherit; }
+  #fbbox textarea { min-height:120px; resize:vertical; }
+  #fbbox label.chk { font-size:12px; color:var(--dim); display:flex; gap:8px; align-items:flex-start; }
+  #fbmsg { font-size:12px; color:var(--good); min-height:16px; }
   #note { padding:0 24px 18px; color:var(--bad); font-size:13px; min-height:20px; }
 </style>
 <header><img src="logo.svg" alt=""><div style="flex:1"><h1>Steezy Studio</h1><div class="label">Your tools, in one place</div></div><button id="shareBtn" class="ghost">Share with friends</button><button id="updateAll">Update all</button></header>
@@ -62,6 +73,15 @@
 <div id="overall" class="bar"><i></i></div>
 <main id="tiles"></main>
 <div id="note"></div>
+<div id="fbLink">Something broken, confusing or missing? <a id="fbOpen">Send feedback</a></div>
+<div id="feedback"><div id="fbbox">
+  <div style="display:flex;align-items:center"><div style="flex:1"><h1>Send feedback</h1>
+    <div class="label">Goes straight to Stefan. No account needed.</div></div><button id="fbClose" class="ghost" style="margin:0">Close</button></div>
+  <select id="fbTool"></select>
+  <textarea id="fbText" maxlength="2000" placeholder="What happened, or what would you like? One or two sentences is plenty."></textarea>
+  <label class="chk"><input type="checkbox" id="fbLog"> <span>Also send the last lines of that app's log (helps with bugs; it can include song names)</span></label>
+  <div style="display:flex;gap:10px;align-items:center"><button id="fbSend">Send</button><div id="fbmsg"></div></div>
+</div></div>
 <div id="share"><div id="sharebox">
   <div style="display:flex;align-items:center"><div style="flex:1"><h1>Share with friends</h1>
     <div class="label">Paste into Terminal (Mac) or PowerShell (Windows)</div></div><button id="shareClose" class="ghost" style="margin:0">Close</button></div>
@@ -199,6 +219,28 @@
     $("toast").textContent = res.length ? res.map((r) => r.message).join(" ") : "No private tools to invite to.";
   };
 
+  // ---- Feedback (hidden until the sheet's address is set in feedback_config.py)
+  async function setupFeedback() {
+    try {
+      const o = await pywebview.api.feedback_options();
+      $("fbLink").style.display = o.enabled ? "block" : "none";
+      if (!o.enabled) return;
+      const sel = $("fbTool");
+      sel.replaceChildren(...[{id: "steezy_studio", name: "Steezy Studio itself"}, ...o.tools].map((t) => {
+        const op = el("option", null, t.name); op.value = t.id; return op; }));
+    } catch (e) {}
+  }
+  $("fbOpen").onclick = () => { $("fbmsg").textContent = ""; $("feedback").classList.add("open"); $("fbText").focus(); };
+  $("fbClose").onclick = () => $("feedback").classList.remove("open");
+  $("fbSend").onclick = async () => {
+    const b = $("fbSend"); b.disabled = true;
+    const r = await pywebview.api.send_feedback($("fbText").value, $("fbTool").value, $("fbLog").checked);
+    $("fbmsg").style.color = r.ok ? "var(--good)" : "var(--bad)";
+    $("fbmsg").textContent = r.message;
+    if (r.ok) { $("fbText").value = ""; setTimeout(() => $("feedback").classList.remove("open"), 1600); }
+    b.disabled = false;
+  };
+
   async function init() {
     const tiles = await pywebview.api.list_tools();
     $("tiles").replaceChildren(...tiles.map(tile));
@@ -207,6 +249,7 @@
   // anything is behind, bring it up to date before it can be opened.
   async function start() {
     await init();
+    setupFeedback();
     try {
       const s = await pywebview.api.check_updates();
       await init();

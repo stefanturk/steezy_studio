@@ -16,7 +16,7 @@ from typing import Optional
 
 import sys
 
-from studio import installer, invite, platform_paths, registry, share, updater
+from studio import feedback, installer, invite, platform_paths, registry, share, updater
 
 UI_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "index.html")
 APP_NAME = "Steezy Studio"
@@ -122,6 +122,22 @@ class Api:
 
     def _studio(self):
         return self._studio_tool or registry.studio_tool()
+
+    # ---- Feedback: a note from a tester goes to the shared sheet (see feedback.py).
+    def feedback_options(self) -> dict:
+        """Whether to show the Send feedback link, which tools it can name, and notes waiting to send."""
+        if not feedback.enabled():
+            return {"enabled": False, "tools": [], "pending": 0}
+        return {"enabled": True, "tools": [{"id": t.id, "name": t.name} for t in self._tools()],
+                "pending": feedback.flush()}
+
+    def send_feedback(self, note: str, tool: str = "", include_log: bool = False) -> dict:
+        try:
+            st = self._studio()
+            version = version_of(st.path)["sha"] if st and st.usable else None
+            return feedback.send(note, tool, bool(include_log), version or "?")
+        except Exception as e:      # never leave the page spinning
+            return {"ok": False, "message": "Couldn't send: %s" % e}
 
     def studio_status(self) -> dict:
         st = self._studio()
