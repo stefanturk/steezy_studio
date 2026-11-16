@@ -21,7 +21,7 @@ from studio import feedback_config, platform_paths
 MAX_NOTE = 2000
 LOG_LINES = 40
 OUTBOX_MAX = 20
-TIMEOUT = 10
+TIMEOUT = 25
 
 # A tool's log on a Mac. Other systems don't keep one the Studio knows about.
 LOG_FILES = {
