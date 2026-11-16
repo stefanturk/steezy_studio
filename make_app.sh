@@ -12,9 +12,8 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -n "${1:-}" ]; then DEST="$1"
-elif [ -w /Applications ]; then DEST="/Applications"
-else DEST="$HOME/Applications"; fi
+. "$REPO/build/lib.sh"
+DEST="$(steezy_dest "${1:-}")"
 APP="$DEST/Steezy Studio.app"
 
 case "$DEST" in
@@ -53,11 +52,7 @@ if [ "$DEST" != "/Applications" ] && [ -e "/Applications/Steezy Studio.app" ]; t
     rm -rf "/Applications/Steezy Studio.app"
 fi
 
-# Earlier builds went into ~/Applications; a second copy there is how the Dock goes stale.
-if [ "$DEST" != "$HOME/Applications" ] && [ -e "$HOME/Applications/Steezy Studio.app" ]; then
-    echo "Removing the old copy at ~/Applications/Steezy Studio.app" >&2
-    rm -rf "$HOME/Applications/Steezy Studio.app"
-fi
+steezy_sweep_old_copy "$DEST" "Steezy Studio"
 
 # Remember which clone this app came from, so the app can update itself from it.
 mkdir -p "$(dirname "$ENGINE")" && printf '%s\n' "$REPO" > "$(dirname "$ENGINE")/studio_dir"
@@ -71,19 +66,7 @@ rm -rf "$APP/Contents/Resources/studio/__pycache__"
 cp -R "$REPO/ui" "$APP/Contents/Resources/ui"
 cp "$REPO/registry.json" "$APP/Contents/Resources/registry.json"
 
-WORK="$(mktemp -d)"
-ICONSET="$WORK/icon.iconset"
-mkdir -p "$ICONSET"
-if "$PYTHON" "$REPO/render_logo.py" "$WORK/master.png" 1024 2>/dev/null; then
-    for size in 16 32 128 256 512; do
-        sips -z $size $size "$WORK/master.png" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null 2>&1
-        sips -z $((size * 2)) $((size * 2)) "$WORK/master.png" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null 2>&1
-    done
-    iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Steezy Studio.icns" 2>/dev/null || true
-else
-    echo "Warning: could not render the icon; the app will use a generic one." >&2
-fi
-rm -rf "$WORK"
+steezy_icns "$REPO/ui/logo.svg" "$APP/Contents/Resources/Steezy Studio.icns" "$PYTHON" || true
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

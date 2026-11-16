@@ -166,6 +166,9 @@ def default_build(tool: registry.Tool) -> tuple:
     if py:
         env["PYTHON"] = py
     dest = platform_paths.apps_dir()
+    studio = registry.studio_path()
+    if studio and os.path.isfile(os.path.join(studio, "build", "lib.sh")):
+        env["STEEZY_BUILD"] = os.path.join(studio, "build")     # shared icon / destination helpers
     code, out = _run(list(tool.build) + [dest], tool.path, env=env)
     if code == 0:
         _remove_old_copy(tool, dest)

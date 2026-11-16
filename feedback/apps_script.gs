@@ -9,7 +9,8 @@
  *      studio/feedback_config.py.
  *
  * The first row of the sheet should read:
- *   time | id | status | tool | version | os | note | log
+ *   time | id | status | tool | version | os | note | log | reply
+ *   (already in place). The last column is where a reply or a "fixed in ..." note goes.
  * Testers only ever add rows through this address. Status starts as "new"; Claude and
  * Stefan change it to "done" (or write a reply in a note) when handled.
  */

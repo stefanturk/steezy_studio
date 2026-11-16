@@ -304,3 +304,14 @@ def test_songs_only_leaves_the_splitter_requirements_out(tmp_path, monkeypatch):
     (tmp_path / "state" / "songs_only").unlink()
     monkeypatch.setenv("STEEZY_SONGS_ONLY", "1")
     assert updater.requirement_files(t) == ["requirements.txt"]
+
+
+def test_build_tells_the_tool_where_the_shared_build_helpers_are(tmp_path, monkeypatch):
+    studio = tmp_path / "studio"; (studio / "build").mkdir(parents=True); (studio / "build" / "lib.sh").write_text("")
+    monkeypatch.setattr(updater.registry, "studio_path", lambda: str(studio))
+    seen = {}
+    monkeypatch.setattr(updater, "_run", lambda cmd, cwd, env=None, **k: seen.update(env=env) or (0, ""))
+    tool = updater.registry.Tool(id="t", name="T", repo="", folder="t", path=str(tmp_path), build=["./m.sh"], app="T.app", platforms=["mac"])
+    monkeypatch.setattr(updater.platform_paths, "is_windows", lambda: False)
+    updater.default_build(tool)
+    assert seen["env"]["STEEZY_BUILD"] == str(studio / "build")

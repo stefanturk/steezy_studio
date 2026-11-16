@@ -6,7 +6,10 @@ obvious built-in way to turn an SVG into a PNG, flattens transparency onto
 white - which gave the Dock icon a white square behind the record. AppKit
 loads SVG directly and keeps the alpha channel, so the disc stays a disc.
 
-    python3 render_logo.py <output.png> [size]
+    python3 render_logo.py <output.png> [size] [logo.svg]
+
+Shared by every Steezy app's make_app.sh (through build/lib.sh); the logo defaults to ui/logo.svg
+of the app being built when run from its own folder.
 """
 
 from __future__ import annotations
@@ -25,7 +28,7 @@ from AppKit import (
     NSPNGFileType,
 )
 
-LOGO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "logo.svg")
+LOGO = os.path.join(os.getcwd(), "ui", "logo.svg")
 
 
 def render(out_path: str, size: int = 1024, logo_path: str = LOGO) -> None:
@@ -54,4 +57,5 @@ def render(out_path: str, size: int = 1024, logo_path: str = LOGO) -> None:
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
-    render(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 1024)
+    render(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 1024,
+           sys.argv[3] if len(sys.argv) > 3 else LOGO)
