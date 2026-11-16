@@ -18,7 +18,7 @@
     {"id": "movie_maker", "name": "Movie Maker", "repo": "https://github.com/stefanturk/movie_maker.git",
      "folder": "movie_maker", "build": ["./make_app.sh"], "app": "Movie Maker.app", "private": true,
      "platforms": ["mac"], "about": "Finds the songs in a band recording and prepares the edit for Final Cut.",
-     "needs": ["Mac only", "Final Cut Pro to finish the edit", "Private: needs an invite from Stefan (a free GitHub account)"]},
+     "needs": ["Mac only", "Final Cut Pro to finish the edit", "Shows without separate instrument tracks use the song splitter (about 2GB, installed with Beat Thief)", "Private: needs an invite from Stefan (a free GitHub account)"]},
     {"id": "stage_lighting", "name": "Stage Lighting", "repo": "https://github.com/stefanturk/stage_lighting.git",
      "folder": "stage_lighting", "build": ["./make_app.sh"], "app": "Stage Lighting.app", "private": true,
      "platforms": ["mac"], "about": "Runs the stage lights from this computer and follows the music.",
