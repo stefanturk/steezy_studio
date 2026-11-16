@@ -1,4 +1,4 @@
-import json, os, sys, tempfile, unittest
+import json, os, re, sys, tempfile, unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from studio import registry as R
 
@@ -10,7 +10,32 @@ def write(d, name, obj):
     return p
 
 
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REGISTRY_IDS = [t["id"] for t in json.load(open(os.path.join(HERE, "registry.json")))["tools"]]
 GOOD = {"id": "a", "name": "A", "repo": "https://x/a.git", "folder": "a", "build": ["./m.sh"], "app": "A.app"}
+
+
+class Shipped(unittest.TestCase):
+    """The one tool list is registry.json. Everything else must agree with it, so adding a tool
+    is one edit there and these say what else (the installer's --list, the README) was missed."""
+
+    def test_every_tool_says_what_it_is_for_and_what_it_needs(self):
+        for t in R.load_tools(root="/nonexistent"):
+            self.assertTrue(t.about, t.id + " has no 'about' line")
+            self.assertTrue(t.needs, t.id + " has no 'needs' lines")
+
+    def test_install_sh_list_names_every_tool(self):
+        with open(os.path.join(HERE, "install.sh")) as f:
+            text = f.read()
+        listed = re.search(r'--list.*?\n\s*echo "([^"]+)"', text, re.S).group(1)
+        for tool_id in REGISTRY_IDS:
+            self.assertIn(tool_id, listed.split(), tool_id + " missing from install.sh --list")
+
+    def test_readme_names_every_tool(self):
+        with open(os.path.join(HERE, "README.md")) as f:
+            head = f.read().lower().replace("_", " ")
+        for tool_id in REGISTRY_IDS:
+            self.assertIn(tool_id.replace("_", " "), head, tool_id + " missing from the README")
 
 
 class T(unittest.TestCase):
@@ -24,7 +49,8 @@ class T(unittest.TestCase):
 
     def test_real_registry_loads_all_tools(self):
         tools = R.load_tools(root=self.root)
-        self.assertEqual([t.id for t in tools], ["beat_thief", "ableton_loader", "session_sync", "movie_maker", "stage_lighting"])
+        self.assertEqual([t.id for t in tools], REGISTRY_IDS)
+        self.assertTrue(len(tools) >= 4)
         self.assertTrue(all(t.state == R.NOT_INSTALLED for t in tools))
 
     def test_ready_when_git_checkout_present(self):

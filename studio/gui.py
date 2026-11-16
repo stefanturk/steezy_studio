@@ -89,7 +89,12 @@ class Api:
                     "installing": self._installing == t.id,
                     "phase": self._phase if (self._installing == t.id or self._working_on == t.id) else "",
                     "updating": self._working_on == t.id, "waiting": t.id in self._queued,
-                    "openable": False}
+                    "openable": False, "about": t.about, "needs": list(t.needs or []),
+                    "private": t.private, "supported": t.state != registry.UNSUPPORTED}
+            # The page shows a tile only for tools this computer has (or is getting, or that are
+            # stuck and need a word). The rest are offered under "Get another Steezy app".
+            item["shown"] = bool(t.usable or item["installing"]
+                                 or (not item["installable"] and item["supported"]))
             if t.usable:
                 item.update(version_of(t.path), app=app_for(t, self._app_dirs))
                 item["version"] = item.pop("sha")

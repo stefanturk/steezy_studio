@@ -32,6 +32,23 @@ class T(unittest.TestCase):
         self.assertEqual([t["usable"] for t in tools], [False, False])
         self.assertIn("isn't on this computer", tools[0]["message"])
 
+    def test_only_tools_you_have_get_a_tile_the_rest_are_offered(self):
+        self.assertEqual([t["shown"] for t in self.api.list_tools()], [False, False])
+        self.repo("a")
+        self.assertEqual([t["shown"] for t in self.api.list_tools()], [True, False])
+
+    def test_a_tool_being_installed_keeps_its_tile(self):
+        self.api._installing = "b"
+        self.assertEqual([t["shown"] for t in self.api.list_tools()], [False, True])
+
+    def test_tool_for_another_computer_is_offered_but_flagged_unsupported(self):
+        with open(self.reg, "w") as f:
+            json.dump({"tools": [{"id": "w", "name": "W", "repo": "x", "folder": "w", "build": ["./m"], "app": "W.app",
+                                  "platforms": ["windows"], "about": "Does W.", "needs": ["Windows"]}]}, f)
+        (t,) = gui.Api(self.reg, self.root, app_dirs=(self.apps,)).list_tools() if not gui.platform_paths.is_windows() else []
+        self.assertFalse(t["shown"] and t["supported"])
+        self.assertFalse(t["supported"]); self.assertEqual((t["about"], t["needs"]), ("Does W.", ["Windows"]))
+
     def test_installed_tool_shows_version_and_not_built(self):
         self.repo("a")
         a = self.api.list_tools()[0]
@@ -200,7 +217,7 @@ class ShareApi(unittest.TestCase):
     def test_share_options_payload(self):
         o = self.api.share_options()
         self.assertIn("install.sh", o["studio"]["mac"])
-        self.assertEqual(len(o["tools"]), 5)
+        self.assertEqual(len(o["tools"]), len(registry.load_tools()))
         self.assertIn(False, [t["private"] for t in o["tools"]])
 
     def test_copy_text_uses_pbcopy(self):

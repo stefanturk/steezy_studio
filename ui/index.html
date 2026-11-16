@@ -55,6 +55,25 @@
   #overall { margin:0 24px; display:none; }
   #overall.on { display:block; }
   #overallText { padding:6px 24px 0; font-size:12px; color:var(--dim); min-height:20px; }
+  .more { border-style:dashed; background:transparent; align-items:flex-start; }
+  .more .msg { color:var(--dim); }
+  #picker { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; }
+  #picker.open { display:flex; }
+  #pickbox { background:var(--raised); border:1px solid var(--edge); border-radius:var(--radius); padding:20px 22px;
+             width:min(640px,92vw); max-height:86vh; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+  .pick { display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--edge); }
+  .pick .txt { flex:1; min-width:0; }
+  .pick .about { font-size:12px; color:var(--dim); }
+  .pick.off { opacity:.5; }
+  .tip { position:relative; display:inline-flex; width:18px; height:18px; border:1px solid var(--edge); border-radius:50%;
+         align-items:center; justify-content:center; font-size:11px; color:var(--dim); cursor:help; flex:none; }
+  .tip:hover { color:var(--ink); border-color:var(--amber); }
+  .tip .bubble { display:none; position:absolute; right:26px; top:-6px; width:280px; background:var(--panel); color:var(--ink);
+                 border:1px solid var(--edge); border-radius:6px; padding:9px 11px; font-size:12px; line-height:1.4;
+                 text-align:left; z-index:5; box-shadow:0 6px 18px rgba(0,0,0,.45); }
+  .tip:hover .bubble { display:block; }
+  .bubble b { display:block; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin:6px 0 2px; }
+  .bubble ul { margin:0; padding-left:16px; }
   #fbLink { display:none; padding:0 24px 16px; font-size:12px; color:var(--dim); }
   #fbLink a { color:var(--amber); cursor:pointer; text-decoration:underline; }
   #feedback { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; }
@@ -81,6 +100,11 @@
   <textarea id="fbText" maxlength="2000" placeholder="What happened, or what would you like? One or two sentences is plenty."></textarea>
   <label class="chk"><input type="checkbox" id="fbLog"> <span>Also send the last lines of that app's log (helps with bugs; it can include song names)</span></label>
   <div style="display:flex;gap:10px;align-items:center"><button id="fbSend">Send</button><div id="fbmsg"></div></div>
+</div></div>
+<div id="picker"><div id="pickbox">
+  <div style="display:flex;align-items:center"><div style="flex:1"><h1>Get another Steezy app</h1>
+    <div class="label">Hover the ? to see what each one is for and what it needs</div></div><button id="pickClose" class="ghost" style="margin:0">Close</button></div>
+  <div id="pickRows"></div>
 </div></div>
 <div id="share"><div id="sharebox">
   <div style="display:flex;align-items:center"><div style="flex:1"><h1>Share with friends</h1>
@@ -152,10 +176,11 @@
   async function install(t) {
     const r = await pywebview.api.install_tool(t.id);
     if (!r.started) { $("note").textContent = r.message; return; }
-    busy = true; $("updateAll").disabled = true; notes[t.id] = "";
+    busy = true; $("updateAll").disabled = true; notes[t.id] = ""; $("note").textContent = "";
+    let said = "";
     for (;;) {
       const s = await pywebview.api.update_status();
-      s.results.forEach((x) => { notes[x.id] = x.message; });
+      s.results.forEach((x) => { notes[x.id] = x.message; if (x.id === t.id) said = x.message; });
       showOverall(s);
       await init();
       if (!s.running) break;
@@ -164,6 +189,9 @@
     showOverall({running: false});
     busy = false; $("updateAll").disabled = false;
     await init();
+    // A tool that didn't install is back behind "Get another Steezy app", so say why here.
+    const now = allTools.find((x) => x.id === t.id);
+    if (now && !now.usable && said) $("note").textContent = said;
   }
 
   const notes = {};
@@ -204,8 +232,7 @@
   }
   async function openShare() {
     shareData = await pywebview.api.share_options();
-    const rows = [shareRow("Whole Steezy Studio", shareData.studio, null, shareData.windows_ready)];
-    shareData.tools.forEach((t) => rows.push(shareRow(t.name, t.commands, t.private ? "needs invite" : null, shareData.windows_ready)));
+    const rows = [shareRow("Steezy Studio", shareData.studio, null, shareData.windows_ready)];
     $("shareRows").replaceChildren(...rows);
     $("toast").textContent = ""; $("share").classList.add("open");
   }
@@ -241,9 +268,59 @@
     b.disabled = false;
   };
 
+  // What you have is shown as tiles. Everything else lives behind "Get another Steezy app",
+  // so nobody has to look at tools they don't have.
+  const here = (t) => t.shown;
+  let allTools = [];
+
+  function tipFor(t) {
+    const tip = el("span", "tip", "?");
+    const b = el("span", "bubble");
+    b.append(el("span", null, t.about || "A Steezy app."));
+    const needs = (t.needs || []).slice();
+    if (!t.supported) needs.unshift("Not available on this computer yet");
+    if (needs.length) {
+      b.append(el("b", null, "Good to know"));
+      const ul = el("ul"); needs.forEach((n) => ul.append(el("li", null, n))); b.append(ul);
+    }
+    tip.append(b);
+    return tip;
+  }
+
+  function openPicker() {
+    const rows = allTools.filter((t) => !here(t)).map((t) => {
+      const row = el("div", "pick" + (t.supported ? "" : " off"));
+      const txt = el("div", "txt");
+      txt.append(el("div", "name", t.name), el("div", "about", t.about));
+      const b = el("button", null, t.supported ? "Install" : "Not on this computer");
+      b.disabled = busy || !t.supported;
+      b.onclick = () => { $("picker").classList.remove("open"); install(t); };
+      row.append(txt, tipFor(t), b);
+      return row;
+    });
+    $("pickRows").replaceChildren(...(rows.length ? rows : [el("div", "msg", "You already have every Steezy app.")]));
+    $("picker").classList.add("open");
+  }
+  $("pickClose").onclick = () => $("picker").classList.remove("open");
+
+  function moreTile(count, none) {
+    const box = el("div", "tile more");
+    box.append(el("span", "name", "Get another Steezy app"));
+    box.append(el("div", "msg", none ? "You don't have any Steezy apps yet. Pick one to start."
+                                     : count + " more to choose from."));
+    const b = el("button", null, "Choose…");
+    b.onclick = openPicker;
+    box.append(b);
+    return box;
+  }
+
   async function init() {
-    const tiles = await pywebview.api.list_tools();
-    $("tiles").replaceChildren(...tiles.map(tile));
+    allTools = await pywebview.api.list_tools();
+    const mine = allTools.filter(here);
+    const others = allTools.filter((t) => !here(t));
+    const out = mine.map(tile);
+    if (others.length) out.push(moreTile(others.length, mine.length === 0));
+    $("tiles").replaceChildren(...out);
   }
   // Draw first, then look for news from GitHub in the background, and if
   // anything is behind, bring it up to date before it can be opened.
