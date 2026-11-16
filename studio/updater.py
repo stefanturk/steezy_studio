@@ -53,8 +53,9 @@ PHASE_PACKAGES = "Installing packages (the big ones take a while)"
 
 
 def _run(cmd: list, cwd: str, timeout: int = 1800, env: Optional[dict] = None):
-    if cmd and cmd[0] == "git":
-        platform_paths.use_private_git()  # Windows without Git: install.ps1's MinGit
+    # Windows without Git: install.ps1's private MinGit goes on PATH. For every command, not just
+    # `git`, because pip installs packages straight from GitHub (music-detector) and runs git itself.
+    platform_paths.use_private_git()
     try:
         r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env,
                            **platform_paths.no_window())
@@ -110,6 +111,18 @@ def requirement_files(tool: registry.Tool) -> list:
     return files
 
 
+# PyPI's Windows torch is the processor-only build, so an NVIDIA card would sit unused. PyTorch's
+# own CUDA 12.1 wheels (same version numbers, "+cu121") work with any driver from 2023 on and fall
+# back to the processor if the driver is older. Only used when nvidia-smi says there is a card.
+CUDA_INDEX = "https://download.pytorch.org/whl/cu121"
+
+
+def cuda_index_args(requirements_file: str) -> list:
+    if "splitter" in requirements_file and platform_paths.is_windows() and shutil.which("nvidia-smi"):
+        return ["--extra-index-url", CUDA_INDEX]
+    return []
+
+
 def default_refresh(tool: registry.Tool) -> tuple:
     """pip-install the tool's packages into the engine Python: every file in the
     tool's requirements list (so Beat Thief gets its instrument splitter on a Mac
@@ -125,7 +138,7 @@ def default_refresh(tool: registry.Tool) -> tuple:
     steps = []
     for name in requirement_files(tool):
         if os.path.exists(os.path.join(tool.path, name)):
-            steps.append(pip + ["-r", name])
+            steps.append(pip + cuda_index_args(name) + ["-r", name])
     if platform_paths.is_windows() and tool.windows_pip_editable:
         steps.append(pip + ["-e", "."])
     if not steps:

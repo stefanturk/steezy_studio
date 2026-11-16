@@ -319,3 +319,34 @@ def test_build_tells_the_tool_where_the_shared_build_helpers_are(tmp_path, monke
     monkeypatch.setattr(updater.platform_paths, "is_windows", lambda: False)
     updater.default_build(tool)
     assert seen["env"]["STEEZY_BUILD"] == str(studio / "build")
+
+
+def test_windows_with_an_nvidia_card_gets_pytorchs_cuda_wheels_for_the_splitter_only(tmp_path, monkeypatch):
+    root = tmp_path / "tools"; d = root / "bt"; d.mkdir(parents=True)
+    (d / "requirements.txt").write_text(""); (d / "requirements-splitter.txt").write_text("")
+    _fake_engine(tmp_path, monkeypatch)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(updater.shutil, "which", lambda n: "C:/nvidia-smi.exe" if n == "nvidia-smi" else None)
+    t = _tool(tmp_path, root, windows_requirements=["requirements.txt", "requirements-splitter.txt"])
+    calls = []
+    monkeypatch.setattr(updater, "_run", lambda cmd, cwd, timeout=0, env=None: (calls.append(cmd), (0, ""))[1])
+    assert updater.default_refresh(t)[0]
+    plain, split = calls
+    assert "--extra-index-url" not in plain
+    assert split[split.index("--extra-index-url") + 1] == updater.CUDA_INDEX
+
+
+def test_no_cuda_wheels_without_a_card_or_on_a_mac(tmp_path, monkeypatch):
+    monkeypatch.setattr(updater.shutil, "which", lambda n: None)
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert updater.cuda_index_args("requirements-splitter.txt") == []
+    monkeypatch.setattr(updater.shutil, "which", lambda n: "/usr/bin/nvidia-smi")
+    monkeypatch.setattr(sys, "platform", "darwin")
+    assert updater.cuda_index_args("requirements-splitter.txt") == []
+
+
+def test_every_command_gets_the_private_git_on_its_path(monkeypatch):
+    seen = []
+    monkeypatch.setattr(updater.platform_paths, "use_private_git", lambda *a: seen.append(1))
+    updater._run([sys.executable, "-c", "pass"], ".")
+    assert seen
