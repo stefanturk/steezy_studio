@@ -280,6 +280,10 @@ def test_apps_go_in_the_main_applications_folder_when_writable(monkeypatch):
     assert platform_paths.apps_dir() == "/x"
 
 
+import pytest
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="runs a Mac make_app.sh shell script")
 def test_build_passes_the_apps_folder_and_removes_the_old_home_copy(tmp_path, monkeypatch):
     home, apps = tmp_path / "home", tmp_path / "apps"
     (home / "Applications" / "BT.app").mkdir(parents=True)

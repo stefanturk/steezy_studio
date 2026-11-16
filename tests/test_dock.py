@@ -3,6 +3,9 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(HERE, "build"))
 import appswap, dock_repin
 
+if sys.platform.startswith("win"):
+    raise unittest.SkipTest("Mac app and Dock helpers")
+
 
 def pin(path, label="X"):
     return {"tile-data": {"file-label": label, "book": b"stale",
