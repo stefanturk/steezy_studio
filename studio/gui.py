@@ -136,7 +136,7 @@ class Api:
         return {"enabled": True, "tools": [{"id": t.id, "name": t.name} for t in self._tools()],
                 "pending": feedback.flush()}
 
-    def send_feedback(self, note: str, tool: str = "", include_log: bool = False) -> dict:
+    def send_feedback(self, note: str, tool: str = "", include_log: bool = True) -> dict:
         try:
             st = self._studio()
             version = version_of(st.path)["sha"] if st and st.usable else None

@@ -98,7 +98,7 @@
     <div class="label">Goes straight to Stefan. No account needed.</div></div><button id="fbClose" class="ghost" style="margin:0">Close</button></div>
   <select id="fbTool"></select>
   <textarea id="fbText" maxlength="2000" placeholder="What happened, or what would you like? One or two sentences is plenty."></textarea>
-  <label class="chk"><input type="checkbox" id="fbLog"> <span>Also send the last lines of that app's log (helps with bugs; it can include song names)</span></label>
+  <div class="label">The last lines of that app's log go along to help fix bugs (they can include song names).</div>
   <div style="display:flex;gap:10px;align-items:center"><button id="fbSend">Send</button><div id="fbmsg"></div></div>
 </div></div>
 <div id="picker"><div id="pickbox">
@@ -261,7 +261,7 @@
   $("fbClose").onclick = () => $("feedback").classList.remove("open");
   $("fbSend").onclick = async () => {
     const b = $("fbSend"); b.disabled = true;
-    const r = await pywebview.api.send_feedback($("fbText").value, $("fbTool").value, $("fbLog").checked);
+    const r = await pywebview.api.send_feedback($("fbText").value, $("fbTool").value, true);
     $("fbmsg").style.color = r.ok ? "var(--good)" : "var(--bad)";
     $("fbmsg").textContent = r.message;
     if (r.ok) { $("fbText").value = ""; setTimeout(() => $("feedback").classList.remove("open"), 1600); }
