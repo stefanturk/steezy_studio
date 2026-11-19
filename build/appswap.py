@@ -41,7 +41,11 @@ def swap(staged: str, final: str) -> None:
     old = final + ".old"
     shutil.rmtree(old, ignore_errors=True)
     os.rename(final, old)
-    os.rename(staged, final)
+    try:
+        os.rename(staged, final)
+    except OSError:
+        os.rename(old, final)                           # put the old app back: never leave no app at all
+        raise
     shutil.rmtree(old, ignore_errors=True)
 
 

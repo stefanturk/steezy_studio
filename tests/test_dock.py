@@ -59,6 +59,32 @@ class Swap(unittest.TestCase):
         self.assertEqual(open(os.path.join(final, "marker")).read(), "new")
         self.assertEqual(sorted(os.listdir(d)), ["C.app"])
 
+    def test_fallback_puts_the_old_app_back_if_the_new_one_cannot_move_in(self):
+        d = tempfile.mkdtemp()
+        final = self.make(d, "D.app", "old"); staged = self.make(d, ".D.app.building", "new")
+        real_swap, real_rename = appswap._swap_atomically, appswap.os.rename
+        calls = []
+        def rename(a, b):
+            calls.append(a)
+            if a == staged:
+                raise OSError("disk full")
+            return real_rename(a, b)
+        appswap._swap_atomically, appswap.os.rename = (lambda a, b: False), rename
+        try:
+            with self.assertRaises(OSError):
+                appswap.swap(staged, final)
+        finally:
+            appswap._swap_atomically, appswap.os.rename = real_swap, real_rename
+        self.assertEqual(open(os.path.join(final, "marker")).read(), "old")       # never left with no app
+
+
+class Builds(unittest.TestCase):
+    def test_building_somewhere_else_never_deletes_the_installed_studio(self):
+        # `./make_app.sh /tmp/x` used to rm -rf "/Applications/Steezy Studio.app"; and for a user who
+        # can't write /Applications, that failing rm stopped every build under set -e.
+        sh = open(os.path.join(HERE, "make_app.sh")).read()
+        self.assertNotIn('rm -rf "/Applications/Steezy Studio.app"', sh)
+
 
 if __name__ == "__main__":
     unittest.main()

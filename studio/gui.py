@@ -332,6 +332,7 @@ def main():
     window = webview.create_window(APP_NAME, UI_FILE, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1],
                                    min_size=(520, 420))
     expose_api(window, api)
+    threading.Thread(target=feedback.trim_logs, daemon=True).start()     # logs never grow without end
     ico = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icon.ico")
     window.events.shown += lambda: platform_paths.set_window_icon(APP_NAME, ico)
     webview.start()

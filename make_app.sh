@@ -48,12 +48,8 @@ if [ -z "$IDENTITY" ]; then
     exit 1
 fi
 
-# A second copy elsewhere is how the Dock goes stale; sweep a stray one.
-if [ "$DEST" != "/Applications" ] && [ -e "/Applications/Steezy Studio.app" ]; then
-    echo "Removing a stray copy at /Applications/Steezy Studio.app" >&2
-    rm -rf "/Applications/Steezy Studio.app"
-fi
-
+# (An old ~/Applications copy is swept at the end by steezy_sweep_old_copy. Nothing in /Applications is
+# ever deleted from here: a build into another folder must not remove the installed app.)
 
 # Remember which clone this app came from, so the app can update itself from it.
 mkdir -p "$(dirname "$ENGINE")" && printf '%s\n' "$REPO" > "$(dirname "$ENGINE")/studio_dir"

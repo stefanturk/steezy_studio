@@ -82,12 +82,68 @@ class T(Env):
             urllib.request.urlopen = lambda req, timeout=0: R(b'{"ok": true}')
             self.assertTrue(feedback._post({"a": 1}, "http://x"))
             urllib.request.urlopen = lambda req, timeout=0: R(b'{"ok": false}')
-            self.assertFalse(feedback._post({"a": 1}, "http://x"))
+            self.assertEqual(feedback._post({"a": 1}, "http://x"), feedback.REJECTED)   # the sheet said no
+            urllib.request.urlopen = lambda req, timeout=0: R(b'{"ok": false, "full": true}')
+            self.assertFalse(feedback._post({"a": 1}, "http://x"))                      # full today: later
             def boom(req, timeout=0): raise OSError("offline")
             urllib.request.urlopen = boom
             self.assertFalse(feedback._post({"a": 1}, "http://x"))
         finally:
             urllib.request.urlopen = real
+
+
+class Privacy(Env):
+    """The log goes with every note (Stefan, 2026-11-19), minus what identifies the person or could be abused."""
+
+    def test_names_addresses_and_secrets_come_out_of_the_log(self):
+        import getpass, socket
+        user, host = getpass.getuser(), socket.gethostname()
+        text = ("hello from %s on %s (%s)\n" % (user, host, host.split(".")[0]) +
+                "mail me@example.com, token=abc123secret X-Auth-Token: zzz9 ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n"
+                "pi at 192.168.8.161:9200 and 10.0.0.2, router 172.16.5.1; public 8.8.8.8 and 2606:4700::1111 at 12:30:45\n")
+        out = feedback.scrub(text)
+        for gone in (user, host, host.split(".")[0], "me@example.com", "abc123secret", "zzz9",
+                     "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", "8.8.8.8", "2606:4700::1111"):
+            self.assertNotIn(gone, out, gone)
+        for kept in ("192.168.8.161:9200", "10.0.0.2", "172.16.5.1", "hello from", "12:30:45"):
+            self.assertIn(kept, out, kept)                                   # LAN addresses help fix bugs
+
+    def test_a_short_login_name_does_not_eat_ordinary_words(self):
+        self.assertEqual(feedback.scrub("stefan's mix restarted", user="st", host="box"), "stefan's mix restarted")
+        self.assertEqual(feedback.scrub("user st here", user="st", host="box"), "user ~user here")
+
+    def test_a_huge_log_is_read_from_its_end(self):
+        path = os.path.join(self.logs, "movie_maker.log")
+        with open(path, "w") as f:
+            f.write("x" * 100 + "\n")
+            for i in range(200000):
+                f.write("line %d\n" % i)
+        tail = feedback.log_tail("movie_maker", logs_dir=self.logs)
+        self.assertTrue(tail.endswith("line 199999")); self.assertIn("line 199960", tail)
+        self.assertNotIn("line 199959\n", tail)
+
+    def test_big_logs_are_trimmed_in_place_keeping_the_newest_lines(self):
+        path = os.path.join(self.logs, "beat_thief.log")
+        with open(path, "w") as f:
+            for i in range(400000):
+                f.write("line %d of the log\n" % i)
+        writer = open(path, "a")                        # a running app keeps appending to the same file
+        feedback.trim_logs(self.logs, limit=1_000_000, keep=200_000)
+        writer.write("after trim\n"); writer.close()
+        data = open(path).read()
+        self.assertLess(len(data), 260_000)
+        self.assertTrue(data.startswith("line ")); self.assertIn("line 399999 of the log\nafter trim\n", data)
+
+    def test_a_note_the_sheet_rejects_is_dropped_not_retried_forever(self):
+        feedback.send("a", "t", False, "v", url="u", state=self.state, post=lambda p, u: False)   # offline: kept
+        self.assertEqual(feedback.pending(self.state), 1)
+        r = feedback.send("b", "t", False, "v", url="u", state=self.state, post=lambda p, u: feedback.REJECTED)
+        self.assertFalse(r["ok"]); self.assertEqual(feedback.pending(self.state), 0)
+
+    def test_an_invisible_only_note_is_refused_up_front(self):
+        # JavaScript's trim() strips U+FEFF and the sheet then refused the note; Python's strip() kept it.
+        r = feedback.send("\ufeff \u200b", "t", False, "v", url="u", state=self.state, post=self.post_ok)
+        self.assertFalse(r["ok"]); self.assertEqual(self.sent, [])
 
 
 class ApiT(unittest.TestCase):

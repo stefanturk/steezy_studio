@@ -86,7 +86,6 @@
   #fbbox textarea, #fbbox select { width:100%; background:var(--panel); color:var(--ink); border:1px solid var(--edge);
            border-radius:6px; padding:8px 10px; font:inherit; }
   #fbbox textarea { min-height:120px; resize:vertical; }
-  #fbbox label.chk { font-size:12px; color:var(--dim); display:flex; gap:8px; align-items:flex-start; }
   #fbmsg { font-size:12px; color:var(--good); min-height:16px; }
   #note { padding:0 24px 18px; color:var(--bad); font-size:13px; min-height:20px; }
 </style>
@@ -101,7 +100,7 @@
     <div class="label">Goes straight to Stefan. No account needed.</div></div><button id="fbClose" class="ghost" style="margin:0">Close</button></div>
   <select id="fbTool"></select>
   <textarea id="fbText" maxlength="2000" placeholder="What happened, or what would you like? One or two sentences is plenty."></textarea>
-  <div class="label">The last lines of that app's log go along to help fix bugs (they can include song names).</div>
+  <div class="label">The last lines of that app's log go along to help fix bugs. Names, emails and passwords are taken out first; song names can stay in.</div>
   <div style="display:flex;gap:10px;align-items:center"><button id="fbSend">Send</button><div id="fbmsg"></div></div>
 </div></div>
 <div id="picker"><div id="pickbox">
