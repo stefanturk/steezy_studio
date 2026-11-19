@@ -28,6 +28,8 @@ NO_NETWORK = "no_network"
 BUILD_FAILED = "build_failed"
 UNAVAILABLE = "unavailable"
 WOULD_UPDATE = "would_update"      # dry run only
+SKIPPED_OPEN = "skipped_open"      # opened while it waited its turn
+GIT_PROBLEM = "git_problem"        # git itself failed (not network, not local changes)
 
 
 @dataclass
@@ -52,22 +54,36 @@ def _phase(text: str) -> None:
 PHASE_PACKAGES = "Installing packages (the big ones take a while)"
 
 
-def _run(cmd: list, cwd: str, timeout: int = 1800, env: Optional[dict] = None):
+def _run(cmd: list, cwd: str, timeout: int = 1800, env: Optional[dict] = None, merge: bool = True):
+    """(exit code, output). merge=False returns stdout only, for output that gets parsed, so a
+    warning on stderr can't be mistaken for it. Never asks for a password (a private repo without
+    access fails at once instead of waiting on a prompt nobody sees), and odd bytes never raise."""
     # Windows without Git: install.ps1's private MinGit goes on PATH. For every command, not just
     # `git`, because pip installs packages straight from GitHub (music-detector) and runs git itself.
     platform_paths.use_private_git()
+    env = dict(os.environ if env is None else env, GIT_TERMINAL_PROMPT="0")
     try:
-        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env,
-                           **platform_paths.no_window())
-        return r.returncode, (r.stdout + r.stderr).strip()
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=timeout, env=env, stdin=subprocess.DEVNULL, **platform_paths.no_window())
+        return r.returncode, (r.stdout if not merge else r.stdout + r.stderr).strip()
     except subprocess.TimeoutExpired:
         return 124, "timed out"
     except OSError as e:
         return 127, str(e)
 
 
-def _git(path: str, *args: str, timeout: int = 60):
-    return _run(["git", *args], path, timeout)
+def _git(path: str, *args: str, timeout: int = 60, merge: bool = True):
+    return _run(["git", *args], path, timeout, merge=merge)
+
+
+def _last_line(out: str) -> str:
+    """The line of git's output worth showing: its first fatal/error line (the rest is boilerplate
+    like "Please make sure you have the correct access rights"), else the last line."""
+    lines = [l.strip() for l in (out or "").splitlines() if l.strip()]
+    for l in lines:
+        if l.startswith(("fatal:", "error:")):
+            return l[:200]
+    return lines[-1][:200] if lines else ""
 
 
 def engine_python() -> Optional[str]:
@@ -251,6 +267,43 @@ def _record_packages(tool: registry.Tool) -> None:
         pass
 
 
+def _build_stamp(tool: registry.Tool) -> str:
+    return os.path.join(platform_paths.engine_dir(), "refreshed", tool.id + ".buildfail")
+
+
+def _head(tool: registry.Tool) -> Optional[str]:
+    code, out = _git(tool.path, "rev-parse", "HEAD", merge=False)
+    return out if code == 0 and out else None
+
+
+def build_failed_at(tool: registry.Tool) -> Optional[str]:
+    """The commit this tool's last build failed at, or None. A launch doesn't retry a build that
+    failed at the same code (it would only fail again, for minutes, every time); new code, or
+    pressing Update, does."""
+    try:
+        with open(_build_stamp(tool)) as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
+def _record_build_failure(tool: registry.Tool) -> None:
+    try:
+        p = _build_stamp(tool)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w") as f:
+            f.write(_head(tool) or "")
+    except OSError:
+        pass
+
+
+def _clear_build_failure(tool: registry.Tool) -> None:
+    try:
+        os.remove(_build_stamp(tool))
+    except OSError:
+        pass
+
+
 def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = False,
                 refresh: Callable = default_refresh, build: Callable = default_build,
                 app_exists: Callable[[registry.Tool], bool] = lambda t: True) -> Result:
@@ -262,13 +315,24 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
         _phase("Checking for updates")
         code, out = _git(tool.path, "fetch", "--quiet")
         if code != 0:
-            return r(NO_NETWORK, "Couldn't reach GitHub, so %s was left as it is." % tool.name)
+            why = _last_line(out)
+            return r(NO_NETWORK, "Couldn't reach GitHub, so %s was left as it is.%s"
+                     % (tool.name, " (git: %s)" % why if why else ""))
 
-    dirty = bool(_git(tool.path, "status", "--porcelain")[1])
-    counts = _git(tool.path, "rev-list", "--left-right", "--count", "HEAD...@{u}")
+    # Untracked files don't count: only edits to files git knows would be at risk from a pull.
+    code, out = _git(tool.path, "status", "--porcelain", "--untracked-files=no", merge=False)
+    if code != 0:
+        return r(GIT_PROBLEM, "git couldn't read %s's folder, so it was left as it is. (git: %s)"
+                 % (tool.name, _last_line(out) or "exit %d" % code))
+    dirty = bool(out)
+    counts = _git(tool.path, "rev-list", "--left-right", "--count", "HEAD...@{u}", merge=False)
     if counts[0] != 0:
         return r(UP_TO_DATE, "No upstream to compare with.")
-    ahead, behind = (int(x) for x in counts[1].split())
+    try:
+        ahead, behind = (int(x) for x in counts[1].split())
+    except ValueError:
+        return r(GIT_PROBLEM, "git gave an answer Steezy Studio didn't understand for %s: %s"
+                 % (tool.name, _last_line(counts[1])))
 
     if behind and ahead:
         return r(SKIPPED_DIVERGED, "%s has its own commits and GitHub has new ones. Left alone." % tool.name)
@@ -308,7 +372,9 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
     _phase("Building the app")
     ok, out = build(tool)
     if not ok:
+        _record_build_failure(tool)
         return r(BUILD_FAILED, "Updated the code but the rebuild failed, so the old app is still there. %s" % out)
+    _clear_build_failure(tool)
     return r(UPDATED, "Updated and rebuilt." if behind else "Built.")
 
 
@@ -320,10 +386,21 @@ def fetch_quietly(tools: list) -> None:
 
 
 def update_all(tools: list, on_result: Optional[Callable[[Result], None]] = None,
-               on_start: Optional[Callable[[registry.Tool], None]] = None, **kw) -> list:
+               on_start: Optional[Callable[[registry.Tool], None]] = None,
+               skip: Optional[Callable[[registry.Tool], bool]] = None, **kw) -> list:
+    """The Studio's own clone goes first: the tools' builds copy shared files from it (build/lib.sh,
+    build/pi_or_mac.py), so a fix there reaches the apps in the same run. `skip(tool)` -> True passes a
+    tool by (it was opened while waiting its turn, and a running app is never rebuilt underneath it)."""
     results = []
     studio = kw.pop("studio", None)
-    for t in list(tools) + ([studio] if studio else []):
+    for t in ([studio] if studio else []) + list(tools):
+        if skip is not None and skip(t):
+            res = Result(t.id, t.name, SKIPPED_OPEN, "Opened before its turn, so it wasn't updated this time. "
+                                                     "It will be next time.")
+            results.append(res)
+            if on_result:
+                on_result(res)
+            continue
         if on_start:
             on_start(t)
         try:

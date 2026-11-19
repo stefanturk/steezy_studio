@@ -83,6 +83,62 @@ class T(unittest.TestCase):
         results = U.update_all([a, b], refresh=lambda t: (True, ""), build=build)
         self.assertEqual([r.status for r in results], [U.BUILD_FAILED, U.UPDATED])
 
+    def test_an_untracked_file_does_not_block_updates(self):
+        # A stray file (a log, a settings file a tool writes) used to block a tool's updates for good.
+        t, seed = self.make("a"); self.push_new(seed)
+        open(os.path.join(t.path, "notes.txt"), "w").write("mine")
+        r = self.run_one(t); self.assertEqual(r.status, U.UPDATED)
+        self.assertEqual(open(os.path.join(t.path, "notes.txt")).read(), "mine")
+
+    def test_a_git_error_is_not_called_local_changes(self):
+        t, seed = self.make("a"); self.push_new(seed)
+        real = U._git
+        def git_fails_status(path, *a, **kw):
+            if a and a[0] == "status":
+                return 128, "fatal: detected dubious ownership in repository"
+            return real(path, *a, **kw)
+        U._git = git_fails_status
+        try:
+            r = self.run_one(t)
+        finally:
+            U._git = real
+        self.assertEqual(r.status, U.GIT_PROBLEM); self.assertIn("dubious ownership", r.message)
+        self.assertEqual(self.builds, [])
+
+    def test_a_failed_fetch_says_what_git_said(self):
+        t, _ = self.make("a"); git(t.path, "remote", "set-url", "origin", os.path.join(self.d, "gone.git"))
+        r = self.run_one(t); self.assertIn("gone.git", r.message)
+
+    def test_commands_never_wait_for_a_password_and_odd_bytes_never_crash(self):
+        code, out = U._run([sys.executable, "-c", "import os; print(os.environ.get('GIT_TERMINAL_PROMPT'))"], self.d)
+        self.assertEqual((code, out), (0, "0"))
+        code, out = U._run([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff\\xfe ok')"], self.d)
+        self.assertEqual(code, 0); self.assertIn("ok", out)
+
+    def test_stderr_warnings_do_not_break_reading_git_output(self):
+        code, out = U._run([sys.executable, "-c", "import sys; sys.stderr.write('warning: x\\n'); print('0\\t1')"],
+                           self.d, merge=False)
+        self.assertEqual(out, "0\t1")
+
+    def test_a_failed_build_is_remembered_for_that_commit_and_cleared_by_a_good_one(self):
+        t, seed = self.make("a"); self.push_new(seed)
+        self.assertIsNone(U.build_failed_at(t))
+        r = self.run_one(t, build=self.build(ok=False)); self.assertEqual(r.status, U.BUILD_FAILED)
+        self.assertEqual(U.build_failed_at(t), self.head(t))
+        r = self.run_one(t, app_exists=lambda t: False); self.assertEqual(r.status, U.UPDATED)
+        self.assertIsNone(U.build_failed_at(t))
+
+    def test_a_tool_opened_before_its_turn_is_passed_by(self):
+        a, sa = self.make("a"); b, sb = self.make("b"); self.push_new(sa); self.push_new(sb)
+        results = U.update_all([a, b], refresh=lambda t: (True, ""), build=self.build(), skip=lambda t: t.id == "a")
+        self.assertEqual([r.status for r in results], [U.SKIPPED_OPEN, U.UPDATED]); self.assertEqual(self.builds, ["b"])
+        self.assertIn("next time", results[0].message)
+
+    def test_the_studio_goes_first_so_tools_build_with_its_new_shared_files(self):
+        a, sa = self.make("a"); st, ss = self.make("studio"); self.push_new(sa); self.push_new(ss)
+        results = U.update_all([a], refresh=lambda t: (True, ""), build=self.build(), studio=st)
+        self.assertEqual([r.id for r in results], ["studio", "a"])
+
     def test_unusable_tool_reported_not_raised(self):
         t = registry.Tool("z", "Z", "", "", "/nope", [], "", [], state=registry.NO_ACCESS, message="Z is private. Ask Stefan for access.")
         r = U.update_tool(t); self.assertEqual(r.status, U.UNAVAILABLE); self.assertIn("Ask Stefan", r.message)

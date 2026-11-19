@@ -26,23 +26,50 @@ APP_DIRS = ("/Applications", os.path.expanduser("~/Applications"))   # builds go
 
 def _git(path: str, *args: str) -> Optional[str]:
     try:
-        r = subprocess.run(["git", "-C", path, *args], capture_output=True, text=True, timeout=10,
-                           **platform_paths.no_window())
+        # --no-optional-locks: `status` must not rewrite the index (it would also clash with a pull)
+        r = subprocess.run(["git", "--no-optional-locks", "-C", path, *args], capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=10, stdin=subprocess.DEVNULL,
+                           env=dict(os.environ, GIT_TERMINAL_PROMPT="0"), **platform_paths.no_window())
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout.strip() if r.returncode == 0 else None
 
 
+_VERSIONS: dict = {}           # path -> (git state stamp, time, answer)
+_VERSION_TTL = 5.0             # local edits ("has local changes") show within this many seconds
+
+
+def _git_stamp(path: str) -> tuple:
+    """Changes whenever a commit, pull, checkout, fetch or `git add` happens in the folder."""
+    out = []
+    for f in ("HEAD", "index", os.path.join("logs", "HEAD"), "FETCH_HEAD", "packed-refs"):
+        try:
+            out.append(os.stat(os.path.join(path, ".git", f)).st_mtime_ns)
+        except OSError:
+            out.append(None)
+    return tuple(out)
+
+
 def version_of(path: str) -> dict:
-    """Short commit, its date, whether the folder has local changes, and how
-    many commits the last-fetched upstream is ahead (None if unknown). Offline."""
+    """Short commit, its date, whether the folder has local changes (to files git knows; a stray
+    untracked file is not one), and how many commits the last-fetched upstream is ahead (None if
+    unknown). Offline. Cached: the page asks for every tool every 0.7 s during an update, which was
+    about 20 git processes a poll."""
+    import time
+    stamp, now = _git_stamp(path), time.monotonic()
+    hit = _VERSIONS.get(path)
+    if hit and hit[0] == stamp and now - hit[1] < _VERSION_TTL:
+        return dict(hit[2])
     sha = _git(path, "rev-parse", "--short", "HEAD")
     if sha is None:
-        return {"sha": None, "date": None, "dirty": False, "behind": None}
-    date = _git(path, "log", "-1", "--format=%cs") or ""
-    dirty = bool(_git(path, "status", "--porcelain"))
-    behind = _git(path, "rev-list", "--count", "HEAD..@{u}")
-    return {"sha": sha, "date": date, "dirty": dirty, "behind": int(behind) if behind and behind.isdigit() else None}
+        v = {"sha": None, "date": None, "dirty": False, "behind": None}
+    else:
+        date = _git(path, "log", "-1", "--format=%cs") or ""
+        dirty = bool(_git(path, "status", "--porcelain", "--untracked-files=no"))
+        behind = _git(path, "rev-list", "--count", "HEAD..@{u}")
+        v = {"sha": sha, "date": date, "dirty": dirty, "behind": int(behind) if behind and behind.isdigit() else None}
+    _VERSIONS[path] = (stamp, now, v)
+    return dict(v)
 
 
 def find_app(app_name: str, dirs=APP_DIRS) -> Optional[str]:
@@ -73,6 +100,7 @@ class Api:
         self._installing: Optional[str] = None
         self._working_on: Optional[str] = None   # the tool an update is on right now
         self._queued: set = set()                # tools an update hasn't reached yet
+        self._skipped: set = set()               # opened while queued: this run passes them by
         self._phase = ""                         # what the current update/install step is doing
         self._total = 0                          # tools in this run, for the overall bar
         updater.phase_hook = lambda text: setattr(self, "_phase", text)
@@ -98,10 +126,9 @@ class Api:
             if t.usable:
                 item.update(version_of(t.path), app=app_for(t, self._app_dirs))
                 item["version"] = item.pop("sha")
-                # Open only once the tool is really there: not mid-install,
-                # mid-update or still waiting its turn to update.
-                item["openable"] = bool(item["app"]) and not (
-                    item["installing"] or item["updating"] or item["waiting"])
+                # Open only once the tool is really there: not mid-install or mid-update. One still
+                # waiting its turn opens, and the update then passes it by (see open_tool).
+                item["openable"] = bool(item["app"]) and not (item["installing"] or item["updating"])
             out.append(item)
         return out
 
@@ -115,7 +142,9 @@ class Api:
             if (version_of(t.path)["behind"] or 0) > 0:
                 return True
             if t is not st and app_for(t, self._app_dirs) is None:
-                return True
+                failed = updater.build_failed_at(t)
+                if not failed or failed != _git(t.path, "rev-parse", "HEAD"):
+                    return True             # never built, or new code since the build failed
         return False
 
     def check_updates(self) -> dict:
@@ -160,6 +189,12 @@ class Api:
             app = app_for(t, self._app_dirs)
             if not app:
                 return {"ok": False, "message": "%s hasn't been built yet. Press Update to build it." % t.name}
+            with self._lock:       # never open an app that is being rebuilt; a waiting one leaves the queue
+                if tool_id in (self._working_on, self._installing):
+                    return {"ok": False, "message": "%s is updating. It opens when that's done." % t.name}
+                if tool_id in self._queued:
+                    self._queued.discard(tool_id)
+                    self._skipped.add(tool_id)
             try:
                 if platform_paths.is_windows():
                     py = platform_paths.python_in(platform_paths.engine_dir(), windowed=True)
@@ -201,11 +236,22 @@ class Api:
 
     # A tool that couldn't update still opens, at the version it has.
     _KEEPS_OLD = (updater.NO_NETWORK, updater.SKIPPED_DIRTY, updater.SKIPPED_AHEAD,
-                  updater.SKIPPED_DIVERGED, updater.BUILD_FAILED)
+                  updater.SKIPPED_DIVERGED, updater.BUILD_FAILED, updater.GIT_PROBLEM)
+
+    def _skip(self, t) -> bool:
+        """Asked by the update just before it starts on `t`: pass it by if it was opened while waiting.
+        Otherwise mark it as being worked on, under the same lock open_tool uses, so it can't open now."""
+        with self._lock:
+            if t.id in self._skipped:
+                return True
+            self._queued.discard(t.id)
+            self._working_on = t.id
+            return False
 
     def _do_update(self):
         tools, studio = self._tools(), self._studio()
         self._queued = {t.id for t in tools + ([studio] if studio else []) if t.usable}
+        self._skipped = set()
         self._total = len(self._queued)
 
         def started(t):
@@ -221,7 +267,7 @@ class Api:
 
         try:
             updater.update_all(
-                tools, on_result=finished, on_start=started,
+                tools, on_result=finished, on_start=started, skip=self._skip,
                 app_exists=lambda t: t.id == "studio" or app_for(t, self._app_dirs) is not None,
                 studio=studio,
                 **self._update_kw)
@@ -259,14 +305,33 @@ class Api:
             self._running = False
 
 
+# What ui/index.html calls, and all it can call. They are exposed by exact name (window.expose), not by
+# handing pywebview the Api as js_api: pywebview resolves a js_api call by following a dotted path,
+# underscores and all, so the page could otherwise reach anything the Api object holds.
+PAGE_FUNCTIONS = ("list_tools", "check_updates", "feedback_options", "send_feedback", "open_tool",
+                  "share_options", "copy_text", "invite_friend", "update_all", "update_status", "install_tool")
+
+
+def expose_api(window, api: "Api") -> None:
+    def named(name):
+        method = getattr(api, name)
+
+        def call(*args):
+            return method(*args)
+        call.__name__ = call.__qualname__ = name
+        return call
+    window.expose(*[named(n) for n in PAGE_FUNCTIONS])
+
+
 def main():
     import webview  # imported here so the Api above stays testable without it
 
     api = Api()
     platform_paths.windows_app_identity("studio")
     platform_paths.use_private_git()
-    window = webview.create_window(APP_NAME, UI_FILE, js_api=api, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1],
+    window = webview.create_window(APP_NAME, UI_FILE, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1],
                                    min_size=(520, 420))
+    expose_api(window, api)
     ico = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icon.ico")
     window.events.shown += lambda: platform_paths.set_window_icon(APP_NAME, ico)
     webview.start()

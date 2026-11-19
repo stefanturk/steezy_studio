@@ -132,7 +132,74 @@ class StartPage(unittest.TestCase):
         P.save_memory(self.d, last="mac")
         self.assertEqual(P.load_memory(self.d), {"last": "mac"})
 
+    def test_after_leaving_the_start_page_the_functions_refuse(self):
+        # The Pi's page (or anything it loads) gets the same window.pywebview.api: it must not drive the Mac.
+        self.assertTrue(self.s.use_pi("http://video.lan")["ok"])
+        for r in (self.s.run_here(), self.s.connect("video.lan"), self.s.use_pi("http://video.lan"), self.s.look()):
+            self.assertFalse(r["ok"])
+        self.assertEqual(self.started, []); self.assertEqual(self.w.loaded, ["http://video.lan/"])
+
+    def test_memory_of_the_wrong_shape_is_ignored(self):
+        for junk in ({"pi": 5, "last": ["x"]}, {"pi": "", "last": "elsewhere"}):
+            with open(os.path.join(self.d, P.MEMORY), "w") as f:
+                json.dump(junk, f)
+            look = self.s.look()                           # never raises: the page would hang on "Looking..."
+            self.assertEqual(look["found"], "http://video.lan"); self.assertIn(look["last"], ("pi", "mac"))
+
     def test_page_names_the_app_safely(self):
         html = P.page("A <b> & C")
         self.assertIn("A &lt;b&gt; &amp; C", html); self.assertNotIn("A <b>", html)
         self.assertIn("pywebview.api.look()", html)
+
+    def test_page_always_shows_the_buttons_even_if_looking_fails(self):
+        html = P.page("X")
+        self.assertIn("catch", html)
+
+
+class ExposeWindow(FakeWindow):
+    """Just enough of a pywebview Window for its real bridge (webview.util.js_bridge_call)."""
+    def __init__(self, js_api=None):
+        super().__init__(); self._js_api, self._functions, self.js = js_api, {}, []
+    def expose(self, *fs):
+        for f in fs:
+            self._functions[f.__name__] = f
+    def evaluate_js(self, js): self.js.append(js)
+
+
+class Bridge(unittest.TestCase):
+    """The page reaches Python only by four exact names. pywebview follows dotted paths on a js_api object,
+    underscores and all, so a page could otherwise walk to anything the object holds (2026-11-19 review)."""
+
+    def make(self, run_here):
+        s = P.Start("Video Streamer", tempfile.mkdtemp(), ["video.lan"], lambda u: False, run_here, "the show")
+        w = ExposeWindow(js_api=s)                   # what the launchers pass: create_window(..., js_api=start)
+        s.attach(w)
+        return s, w
+
+    def test_attach_exposes_only_the_page_functions_and_drops_the_js_api(self):
+        s, w = self.make(lambda: (True, "http://127.0.0.1:1/"))
+        self.assertEqual(sorted(w._functions), ["connect", "look", "run_here", "use_pi"])
+        self.assertIsNone(w._js_api)
+
+    def test_the_real_bridge_cannot_reach_private_attributes(self):
+        try:
+            from webview import util
+        except ImportError:
+            self.skipTest("pywebview not installed")
+        import subprocess, time
+
+        class Local:                                  # like the launchers' Local: it holds subprocess.Popen
+            popen = subprocess.Popen
+            def __call__(self): return True, "http://127.0.0.1:1/"
+        s, w = self.make(Local())
+        marker = os.path.join(tempfile.mkdtemp(), "pwned")
+        for name, args in (("_run_here.popen", [["/usr/bin/touch", marker]]),
+                           ("run_here.__self__._run_here.popen", [["/usr/bin/touch", marker]]),
+                           ("look.__func__.__globals__.clear", []),
+                           ("look.__globals__.clear", []), ("attach", [None])):
+            util.js_bridge_call(w, name, args, "1")
+        util.js_bridge_call(w, "look", [], "2")
+        time.sleep(0.5)
+        self.assertFalse(os.path.exists(marker))
+        self.assertTrue(callable(P.normalize))        # the module's globals are intact
+        self.assertTrue(any('"found"' in js or "found" in js for js in w.js))   # the real names still work

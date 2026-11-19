@@ -132,9 +132,9 @@
       let meta = (t.version || "?") + (t.dirty ? " · has local changes" : "");
       if (t.behind > 0) meta += " · " + t.behind + " newer";
       box.append(el("div", "meta", meta));
-      // Open only once the tool is really ready: not while it installs,
-      // updates or waits its turn, which used to let you open a half-built app.
-      const label = t.updating ? "Updating…" : t.waiting ? "Waiting to update" : t.installing ? "Installing…" : "Open";
+      // Open only once the tool is really ready: not while it installs or updates, which used to
+      // let you open a half-built app. One waiting its turn opens; this update then passes it by.
+      const label = t.updating ? "Updating…" : t.installing ? "Installing…" : t.waiting ? "Open (update waits)" : "Open";
       const b = el("button", null, label);
       b.disabled = !t.openable;
       if (t.updating) busyBar(box, t.phase);
@@ -209,7 +209,8 @@
   const notes = {};
   async function updateAll() {
     const b = $("updateAll"); b.disabled = true; b.textContent = "Updating…"; busy = true;
-    await pywebview.api.update_all();
+    const go = await pywebview.api.update_all();
+    if (!go.started) { b.disabled = false; b.textContent = "Update all"; busy = false; return; }  // one is already running
     for (;;) {
       const s = await pywebview.api.update_status();
       s.results.forEach((r) => { notes[r.id] = r.message; });
