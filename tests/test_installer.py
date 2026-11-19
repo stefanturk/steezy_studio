@@ -256,6 +256,20 @@ def test_packages_are_stale_until_recorded_and_again_when_requirements_change(tm
     assert updater._packages_stale(t)          # a requirement was added
 
 
+def test_a_changed_shared_pin_makes_packages_stale_too(tmp_path, monkeypatch):
+    # constraints.txt is how a pin change reaches every tool; it used to be left out of the check.
+    root = tmp_path / "tools"; d = root / "bt"; d.mkdir(parents=True)
+    (d / "requirements.txt").write_text("a\n")
+    studio = tmp_path / "studio"; studio.mkdir(); (studio / "constraints.txt").write_text("a==1\n")
+    _fake_engine(tmp_path, monkeypatch)
+    monkeypatch.setattr(registry, "studio_path", lambda: str(studio))
+    t = _tool(tmp_path, root)
+    updater._record_packages(t)
+    assert not updater._packages_stale(t)
+    (studio / "constraints.txt").write_text("a==2\n")
+    assert updater._packages_stale(t)
+
+
 def test_phases_are_reported_while_installing(tmp_path, monkeypatch):
     root = tmp_path / "tools"; root.mkdir()
     _fake_engine(tmp_path, monkeypatch)

@@ -7,6 +7,7 @@ an error dialog.
 from __future__ import annotations
 
 import json
+import re
 import os
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -97,6 +98,21 @@ def _broken(raw: object, why: str) -> Tool:
                 app="", platforms=[], state=BROKEN, message="Steezy Studio can't read this one. Ask Stefan. (%s)" % why)
 
 
+_SIMPLE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]*$")
+
+
+def _bad_name(raw: dict) -> str:
+    """Why id/folder/app can't be used, or "". They become paths that get deleted (a failed clone's
+    folder, an old app copy), so each must be one plain name: no slashes, no "..", nothing absolute."""
+    for key in ("id", "folder", "app"):
+        v = raw.get(key)
+        if not isinstance(v, str) or not _SIMPLE.match(v) or ".." in v:
+            return "%s must be a plain name" % key
+    if not raw["app"].endswith(".app"):
+        return "app must end in .app"
+    return ""
+
+
 def load_tools(registry_path: Optional[str] = None, root: Optional[str] = None,
                has_access: Optional[Callable[[Tool], bool]] = None) -> list:
     """Every tool in the registry with its state filled in. Never raises.
@@ -127,6 +143,10 @@ def load_tools(registry_path: Optional[str] = None, root: Optional[str] = None,
             continue
         if raw["id"] in seen:
             tools.append(_broken(raw, "duplicate id"))
+            continue
+        bad_name = _bad_name(raw)
+        if bad_name:
+            tools.append(_broken(raw, bad_name))
             continue
         build = raw["build"]
         if not (isinstance(build, list) and all(isinstance(a, str) for a in build)):

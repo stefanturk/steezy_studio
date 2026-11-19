@@ -99,6 +99,14 @@ class T(unittest.TestCase):
                          [R.BROKEN, R.BROKEN, R.BROKEN, R.NOT_INSTALLED, R.BROKEN])
         self.assertTrue(all("Ask Stefan" in t.message for t in tools if t.state == R.BROKEN))
 
+    def test_names_that_reach_outside_their_folder_are_refused(self):
+        # folder, app and id end up in paths that get deleted (rmtree of a failed clone, an old app copy)
+        bad = [dict(GOOD, id="a", folder="../.."), dict(GOOD, id="b", folder="/Users"), dict(GOOD, id="c", app="../X.app"),
+               dict(GOOD, id="d", app="X"), dict(GOOD, id="../e"), dict(GOOD, id="f", folder="."), dict(GOOD, id="g", folder="")]
+        tools = self.load({"tools": bad})
+        self.assertEqual([t.state for t in tools], [R.BROKEN] * len(bad))
+        self.assertTrue(all(t.path == "" for t in tools))
+
     def test_unreadable_registry_never_raises(self):
         for content in ("{not json", '{"tools": 5}', "{}", "[]", ""):
             tools = R.load_tools(write(self.d, "bad.json", content), root=self.root)

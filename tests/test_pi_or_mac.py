@@ -30,6 +30,17 @@ class Addresses(unittest.TestCase):
         for bad in ("", "   ", "ftp://x", "http://", "a b", "x:notaport"):
             self.assertIsNone(P.normalize(bad), bad)
 
+    def test_ipv6_typed_bare_or_in_brackets(self):
+        self.assertEqual(P.normalize("fe80::1"), "http://[fe80::1]")
+        self.assertEqual(P.normalize("::1"), "http://[::1]")
+        self.assertEqual(P.normalize("[fd00::5]:9000"), "http://[fd00::5]:9000")
+
+    def test_addresses_that_hide_another_host_or_port_are_refused(self):
+        # urlsplit reads "pi.local\@evil.com" as user "pi.local\" at host evil.com
+        for bad in ("pi.local\\@evil.com", "me@evil.com", "http://a:b@evil.com", "pi.local:0", "pi.local:99999",
+                    "pi.local\tx", "pi.local\nx"):
+            self.assertIsNone(P.normalize(bad), bad)
+
 
 class Fingerprints(unittest.TestCase):
     def test_each_app_only_recognises_its_own_pi(self):
@@ -51,7 +62,29 @@ class Finding(unittest.TestCase):
         tried = []
         probe = lambda u: tried.append(u) or u == "http://video.lan:9200"
         self.assertEqual(P.find_pi(["video.lan", "VIDEO.lan", "", "video.lan:9200", "x.lan"], probe), "http://video.lan:9200")
-        self.assertEqual(tried, ["http://video.lan", "http://video.lan:9200"])
+        self.assertEqual(sorted(tried), sorted(set(tried)))                       # each address once
+        self.assertNotIn("http://VIDEO.lan", tried)
+
+    def test_addresses_are_tried_together_and_the_earlier_one_wins(self):
+        import time
+        def probe(u):
+            time.sleep({"http://a": 0.6, "http://b": 0.6, "http://c": 0.1}[u]); return u in ("http://b", "http://c")
+        t0 = time.monotonic()
+        self.assertEqual(P.find_pi(["a", "b", "c"], probe), "http://b")           # b is preferred over c
+        self.assertLess(time.monotonic() - t0, 1.0)                               # not 1.3 s one after another
+
+    def test_a_hanging_name_lookup_cannot_hold_up_the_start_page(self):
+        import time
+        def probe(u):
+            if u == "http://slow.local":
+                time.sleep(5)                                                     # .local names took 5.0 s each
+            return u == "http://fast.lan"
+        t0 = time.monotonic()
+        self.assertEqual(P.find_pi(["slow.local", "fast.lan"], probe, deadline=0.5), "http://fast.lan")
+        self.assertLess(time.monotonic() - t0, 0.9)
+        t0 = time.monotonic()
+        self.assertIsNone(P.find_pi(["slow.local"], probe, deadline=0.3))
+        self.assertLess(time.monotonic() - t0, 0.7)
 
     def test_nothing_found(self):
         self.assertIsNone(P.find_pi(["a", "b"], lambda u: False))
@@ -109,6 +142,15 @@ class StartPage(unittest.TestCase):
         self.assertTrue(self.s.connect("mypi.local:9000")["ok"])
         self.assertEqual(self.w.loaded, ["http://mypi.local:9000/"])
         self.assertEqual(P.load_memory(self.d)["pi"], "http://mypi.local:9000")
+
+    def test_an_address_typed_without_a_port_also_tries_the_app_s_usual_port(self):
+        # Lights at 192.168.68.53 answer on :9000; port 80 there is Video Streamer.
+        s = P.Start("Stage Lighting", self.d, ["sound.lan:9000", "lights.lan"], lambda u: u == "http://10.0.0.5:9000",
+                    lambda: (True, "x"), "the lights")
+        w = FakeWindow(); s.attach(w)
+        self.assertTrue(s.connect("10.0.0.5")["ok"])
+        self.assertEqual(w.loaded, ["http://10.0.0.5:9000/"])
+        self.assertEqual(P.load_memory(self.d)["pi"], "http://10.0.0.5:9000")
 
     def test_a_pi_that_went_away_is_not_opened(self):
         self.pis = set()

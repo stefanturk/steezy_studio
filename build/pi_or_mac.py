@@ -26,21 +26,33 @@ MEMORY = "pi.json"
 
 
 def normalize(addr: str) -> Optional[str]:
-    """'video.lan', '192.168.8.161:9200', 'http://x/' -> 'http://host[:port]'. None if it isn't an address."""
+    """'video.lan', '192.168.8.161:9200', 'http://x/', 'fe80::1' -> 'http://host[:port]'. None if it
+    isn't one plain address (no user@, no backslash or spaces, a port from 1 to 65535)."""
     addr = (addr or "").strip()
-    if not addr:
+    if not addr or any(c.isspace() or ord(c) < 32 or c == "\\" for c in addr):
         return None
     if "://" not in addr:
+        if addr.count(":") >= 2 and not addr.startswith("["):
+            addr = "[%s]" % addr                     # a bare IPv6 address (it can't carry a port this way)
         addr = "http://" + addr
     try:
         u = urllib.parse.urlsplit(addr)
         port = u.port
     except ValueError:
         return None
-    if u.scheme not in ("http", "https") or not u.hostname or any(c in u.hostname for c in " /\\@"):
+    if u.scheme not in ("http", "https") or not u.hostname or "@" in u.netloc or any(c in u.hostname for c in " /\\@"):
+        return None
+    if port is not None and not 1 <= port <= 65535:
         return None
     host = u.hostname if ":" not in u.hostname else "[%s]" % u.hostname
     return "%s://%s%s" % (u.scheme, host, ":%d" % port if port else "")
+
+
+def port_of(url: str) -> Optional[int]:
+    try:
+        return urllib.parse.urlsplit(url).port
+    except ValueError:
+        return None
 
 
 def lights_state(d: dict) -> bool:
@@ -64,17 +76,47 @@ def looks_like(base: str, fingerprint: Callable[[dict], bool], path: str = "/sta
         return False
 
 
-def find_pi(candidates: Iterable[str], probe: Callable[[str], bool]) -> Optional[str]:
-    """The first candidate (normalised, each tried once) that the probe recognises."""
-    seen = set()
+def find_pi(candidates: Iterable[str], probe: Callable[[str], bool], deadline: float = 3.0) -> Optional[str]:
+    """The earliest candidate (normalised, each tried once) that the probe recognises. All are asked at
+    once, and nothing waits longer than `deadline` seconds in all: a name that doesn't resolve (.local
+    lookups took 5 s each, and a probe's own timeout doesn't cover the lookup) can't hold the page up."""
+    import threading
+    import time
+    urls = []
     for c in candidates:
         url = normalize(c)
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        if probe(url):
-            return url
-    return None
+        if url and url not in urls:
+            urls.append(url)
+    if not urls:
+        return None
+    answers: dict = {}
+    done = threading.Condition()
+
+    def ask(url):
+        try:
+            ok = bool(probe(url))
+        except Exception:
+            ok = False
+        with done:
+            answers[url] = ok
+            done.notify_all()
+
+    for url in urls:            # daemon threads: one stuck in a lookup never keeps the app from quitting
+        threading.Thread(target=ask, args=(url,), daemon=True).start()
+    end = time.monotonic() + deadline
+    with done:
+        while True:
+            for url in urls:                       # the earliest one that answered yes, once all before it said no
+                if url not in answers:
+                    break
+                if answers[url]:
+                    return url
+            else:
+                return None
+            left = end - time.monotonic()
+            if left <= 0:                          # out of time: take the earliest yes so far, if any
+                return next((u for u in urls if answers.get(u)), None)
+            done.wait(left)
 
 
 def load_memory(data_dir: str) -> dict:
@@ -165,9 +207,16 @@ class Start:
         url = normalize(addr if isinstance(addr, str) else "")
         if not url:
             return {"ok": False, "message": "That doesn't look like an address. Try something like 192.168.8.161 or mypi.local:9000."}
-        if not self._probe(url):
+        tries = [url]
+        if port_of(url) is None:        # no port typed: also the ports this app's Pi usually answers on
+            for d in self._defaults:
+                p = port_of(normalize(d) or "")
+                if p and "%s:%d" % (url, p) not in tries:
+                    tries.append("%s:%d" % (url, p))
+        found = find_pi(tries, self._probe)
+        if not found:
             return {"ok": False, "message": "Nothing at %s is running %s. Check the address and that the Pi is on." % (url, self._app)}
-        return self.use_pi(url)
+        return self.use_pi(found)
 
     def run_here(self) -> dict:
         if self._left:

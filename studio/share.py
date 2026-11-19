@@ -50,5 +50,5 @@ def share_options(tools: list) -> dict:
     }
 
 
-# Windows scripts exist but have never run on a real PC: the panel labels them beta.
+# Windows is offered for sharing (it runs in CI on every push; the button still says "beta").
 WINDOWS_READY = True

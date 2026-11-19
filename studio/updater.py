@@ -242,6 +242,13 @@ def _requirements_hash(tool: registry.Tool) -> str:
                 h.update(name.encode() + b"\0" + f.read())
         except OSError:
             pass
+    st = registry.studio_path()            # the shared pins: a changed pin must reach every tool
+    if st:
+        try:
+            with open(os.path.join(st, "constraints.txt"), "rb") as f:
+                h.update(b"constraints\0" + f.read())
+        except OSError:
+            pass
     return h.hexdigest()
 
 
