@@ -30,6 +30,7 @@ LOG_FILES = {
     "session_sync": "SessionSync.log",
     "movie_maker": "movie_maker.log",
     "stage_lighting": "stage_lighting.log",
+    "video_streamer": "video_streamer.log",
     "steezy_studio": "steezy_studio.log",
 }
 

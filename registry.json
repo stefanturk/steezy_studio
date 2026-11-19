@@ -22,6 +22,10 @@
     {"id": "stage_lighting", "icon": "icons/stage_lighting.svg", "name": "Stage Lighting", "repo": "https://github.com/stefanturk/stage_lighting.git",
      "folder": "stage_lighting", "build": ["./make_app.sh"], "app": "Stage Lighting.app", "private": true,
      "platforms": ["mac"], "about": "Runs the stage lights from this computer and follows the music.",
-     "needs": ["Mac only", "Govee lights on your wifi and/or a USB DMX box", "Private: needs an invite from Stefan (a free GitHub account)"]}
+     "needs": ["Mac only", "Govee lights on your wifi and/or a USB DMX box", "Private: needs an invite from Stefan (a free GitHub account)"]},
+    {"id": "video_streamer", "icon": "icons/video_streamer.svg", "name": "Video Streamer", "repo": "https://github.com/stefanturk/video_streamer.git",
+     "folder": "video_streamer", "build": ["./make_app.sh"], "app": "Video Streamer.app", "private": true,
+     "platforms": ["mac"], "about": "Films the show from phones and mixes it live: control room, guests filming, stream to the web.",
+     "needs": ["Mac only (or your own Pi)", "Android phones with the Video Streamer app", "Private: needs an invite from Stefan (a free GitHub account)"]}
   ]
 }
