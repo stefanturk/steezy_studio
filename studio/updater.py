@@ -30,6 +30,7 @@ UNAVAILABLE = "unavailable"
 WOULD_UPDATE = "would_update"      # dry run only
 SKIPPED_OPEN = "skipped_open"      # opened while it waited its turn
 GIT_PROBLEM = "git_problem"        # git itself failed (not network, not local changes)
+UNSIGNED = "unsigned"              # the new commit isn't signed by a trusted key: left on GitHub
 
 
 @dataclass
@@ -311,6 +312,30 @@ def _clear_build_failure(tool: registry.Tool) -> None:
         pass
 
 
+def signers_file() -> Optional[str]:
+    """The keys an update must be signed by: allowed_signers beside the running Studio's own code (in the app
+    bundle, or the source folder on Windows). Never the copy being downloaded, so changing who is trusted
+    takes an update that is itself signed by someone already trusted."""
+    p = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "allowed_signers")
+    return p if os.path.isfile(p) else None
+
+
+def verify_upstream(tool: registry.Tool) -> tuple:
+    """(ok, why) for the newest commit on GitHub (@{u}): signed by a trusted key? Only that commit is
+    checked, because its signature covers all the history under it.
+    Windows without ssh-keygen (the private MinGit has none) can't check and lets it through, saying so."""
+    if os.environ.get("STEEZY_SKIP_SIGNATURE_CHECK") == "1":
+        return True, ""
+    f = signers_file()
+    if not f:
+        return False, "this copy of Steezy Studio has no list of trusted signers"
+    if not shutil.which("ssh-keygen"):
+        return True, "not checked (no ssh-keygen on this computer)"
+    code, out = _git(tool.path, "-c", "gpg.format=ssh", "-c", "gpg.ssh.allowedSignersFile=" + f,
+                     "verify-commit", "@{u}")
+    return code == 0, _last_line(out)
+
+
 def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = False,
                 refresh: Callable = default_refresh, build: Callable = default_build,
                 app_exists: Callable[[registry.Tool], bool] = lambda t: True) -> Result:
@@ -366,6 +391,10 @@ def update_tool(tool: registry.Tool, *, fetch: bool = True, dry_run: bool = Fals
         return r(WOULD_UPDATE, "%d new commit(s) would be pulled." % behind if behind else "Would build the app.")
 
     if behind:
+        ok, why = verify_upstream(tool)
+        if not ok:
+            return r(UNSIGNED, "The new version of %s isn't signed by Stefan, so it wasn't installed. "
+                               "Tell Stefan. (%s)" % (tool.name, why or "no signature"))
         _phase("Downloading the new code")
         code, out = _git(tool.path, "pull", "--ff-only", "--quiet", timeout=300)
         if code != 0:

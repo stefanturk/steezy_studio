@@ -236,7 +236,8 @@ class Api:
 
     # A tool that couldn't update still opens, at the version it has.
     _KEEPS_OLD = (updater.NO_NETWORK, updater.SKIPPED_DIRTY, updater.SKIPPED_AHEAD,
-                  updater.SKIPPED_DIVERGED, updater.BUILD_FAILED, updater.GIT_PROBLEM)
+                  updater.SKIPPED_DIVERGED, updater.BUILD_FAILED, updater.GIT_PROBLEM,
+                  updater.UNSIGNED)
 
     def _skip(self, t) -> bool:
         """Asked by the update just before it starts on `t`: pass it by if it was opened while waiting.

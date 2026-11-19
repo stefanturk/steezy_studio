@@ -63,6 +63,7 @@ cp -R "$REPO/studio" "$APP/Contents/Resources/studio"
 rm -rf "$APP/Contents/Resources/studio/__pycache__"
 cp -R "$REPO/ui" "$APP/Contents/Resources/ui"
 cp "$REPO/registry.json" "$APP/Contents/Resources/registry.json"
+cp "$REPO/allowed_signers" "$APP/Contents/Resources/allowed_signers"     # who updates must be signed by
 
 steezy_icns "$REPO/ui/logo.svg" "$APP/Contents/Resources/Steezy Studio.icns" "$PYTHON" || true
 

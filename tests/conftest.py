@@ -15,3 +15,5 @@ def _pretend_mac_with_empty_engine(monkeypatch, tmp_path):
     monkeypatch.delenv("STEEZY_PYTHON", raising=False)
     monkeypatch.delenv("STEEZY_REPO_BASE", raising=False)
     monkeypatch.setenv("STEEZY_SKIP_SHORTCUTS", "1")
+    # Test repos are made with unsigned commits; tests/test_signed_updates.py turns the check back on.
+    monkeypatch.setenv("STEEZY_SKIP_SIGNATURE_CHECK", "1")
