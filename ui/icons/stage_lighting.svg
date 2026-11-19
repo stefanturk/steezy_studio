@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    Stage Lighting's mark, in the same family as Steezy Studio, Beat Thief, the Ableton
+    Loader and Movie Maker: a near-black rounded plate with a white rim and fine grooves.
+    The label is a stage light - a par can on a yoke throwing a warm beam down - where
+    Steezy Studio has its amp stack.
+  -->
+  <defs>
+    <linearGradient id="sheen" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFE9A8" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FFB02E" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="lens" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.35" stop-color="#FFE9A8"/>
+      <stop offset="0.8" stop-color="#FFB02E"/>
+      <stop offset="1" stop-color="#7A3F00"/>
+    </radialGradient>
+  </defs>
+  <rect x="53" y="53" width="918" height="918" rx="200" fill="#0C0D10"/>
+  <rect x="53" y="53" width="918" height="918" rx="200" fill="none" stroke="#FFFFFF" stroke-width="26"/>
+  <g fill="none" stroke="#22232A">
+    <rect x="119" y="119" width="786" height="786" rx="134" stroke-width="9"/>
+    <rect x="171" y="171" width="682" height="682" rx="82" stroke-width="5" opacity="0.9"/>
+    <rect x="223" y="223" width="578" height="578" rx="30" stroke-width="9"/>
+    <rect x="275" y="275" width="474" height="474" rx="30" stroke-width="5" opacity="0.9"/>
+  </g>
+  <rect x="66" y="66" width="892" height="892" rx="187" fill="url(#sheen)"/>
+  <!-- turned a quarter turn clockwise so the light points down; centred on the plate -->
+  <g transform="translate(-73 0) rotate(90 585 512)">
+    <!-- the beam, widening to the right of the lens -->
+    <path d="M520 442 L870 250 L870 774 L520 582 Z" fill="url(#beam)"/>
+    <!-- yoke and clamp -->
+    <path d="M300 300 L300 724" stroke="#8C5CFF" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <!-- the can -->
+    <path d="M300 410 L520 440 L520 584 L300 614 Z" fill="#171226" stroke="#8C5CFF" stroke-width="14" stroke-linejoin="round"/>
+    <path d="M360 428 L360 596 M410 435 L410 589 M460 441 L460 583" stroke="#2A1B52" stroke-width="10"/>
+    <!-- the lens -->
+    <ellipse cx="520" cy="512" rx="40" ry="76" fill="url(#lens)" stroke="#C9A8FF" stroke-width="10"/>
+    <!-- sparkles -->
+    <circle cx="760" cy="512" r="14" fill="#FFFFFF" fill-opacity="0.8"/>
+    <circle cx="690" cy="430" r="8" fill="#FFFFFF" fill-opacity="0.6"/>
+    <circle cx="700" cy="600" r="9" fill="#FFFFFF" fill-opacity="0.6"/>
+  </g>
+</svg>

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    Ableton Loader's mark, cut from the same cloth as Beat Thief's record: a
+    near-black plate with a white rim, fine grooves, and a violet label in the
+    middle. The plate is a rounded square rather than a disc, and the label
+    carries an upload arrow - files going up into the project.
+
+    Grooves are nested rounded squares drawn as strokes, so the whole thing
+    stays a few kilobytes of vector and survives being scaled from the 1024px
+    icon down to the small mark in the window's header.
+  -->
+  <defs>
+    <linearGradient id="sheen" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Plate. The white rim keeps the edge readable against a dark Dock. -->
+  <rect x="53" y="53" width="918" height="918" rx="200" fill="#0C0D10"/>
+  <rect x="53" y="53" width="918" height="918" rx="200" fill="none" stroke="#FFFFFF" stroke-width="26"/>
+
+  <!-- Grooves -->
+  <g fill="none" stroke="#22232A">
+    <rect x="119" y="119" width="786" height="786" rx="134" stroke-width="9"/>
+    <rect x="145" y="145" width="734" height="734" rx="108" stroke-width="5" opacity="0.9"/>
+    <rect x="171" y="171" width="682" height="682" rx="82" stroke-width="5" opacity="0.9"/>
+    <rect x="197" y="197" width="630" height="630" rx="56" stroke-width="9"/>
+    <rect x="223" y="223" width="578" height="578" rx="30" stroke-width="5" opacity="0.9"/>
+    <rect x="249" y="249" width="526" height="526" rx="30" stroke-width="5" opacity="0.9"/>
+    <rect x="275" y="275" width="474" height="474" rx="30" stroke-width="9"/>
+    <rect x="301" y="301" width="422" height="422" rx="30" stroke-width="5" opacity="0.9"/>
+  </g>
+
+  <!-- Light catching the surface -->
+  <rect x="66" y="66" width="892" height="892" rx="187" fill="url(#sheen)"/>
+
+  <!-- Label -->
+  <circle cx="512" cy="512" r="232" fill="#8B5CF6"/>
+  <circle cx="512" cy="512" r="232" fill="none" stroke="#FFFFFF" stroke-width="16"/>
+
+  <!-- Upload: an arrow rising out of a tray -->
+  <g fill="#FFFFFF">
+    <path d="M512 352 L632 476 H560 V584 H464 V476 H392 Z" stroke="#FFFFFF" stroke-width="14" stroke-linejoin="round"/>
+  </g>
+  <path d="M388 622 V650 a24 24 0 0 0 24 24 H612 a24 24 0 0 0 24 -24 V622" fill="none" stroke="#FFFFFF" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

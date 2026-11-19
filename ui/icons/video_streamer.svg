@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs>
+<linearGradient id="sheen" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#FFF" stop-opacity="0.16"/><stop offset="0.45" stop-color="#FFF" stop-opacity="0.03"/><stop offset="1" stop-color="#FFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="glass" cx="0.42" cy="0.38" r="0.7"><stop offset="0" stop-color="#F3EAFF"/><stop offset="0.2" stop-color="#C9A8FF"/><stop offset="0.6" stop-color="#8C5CFF"/><stop offset="1" stop-color="#2A1B52"/></radialGradient>
+</defs>
+<rect x="53" y="53" width="918" height="918" rx="200" fill="#0C0D10" stroke="#FFF" stroke-width="26"/>
+<g fill="none" stroke="#22232A"><rect x="119" y="119" width="786" height="786" rx="134" stroke-width="9"/><rect x="171" y="171" width="682" height="682" rx="82" stroke-width="5"/><rect x="223" y="223" width="578" height="578" rx="30" stroke-width="9"/><rect x="275" y="275" width="474" height="474" rx="30" stroke-width="5"/></g>
+<rect x="66" y="66" width="892" height="892" rx="187" fill="url(#sheen)"/>
+
+<rect x="250" y="300" width="400" height="230" rx="40" fill="#8B5CF6" stroke="#FFF" stroke-width="18"/>
+<rect x="650" y="355" width="110" height="120" rx="16" fill="#FFF"/><circle cx="705" cy="415" r="36" fill="url(#glass)" stroke="#0C0D10" stroke-width="10"/>
+<circle cx="320" cy="360" r="24" fill="#FF4D4D"/><rect x="360" y="348" width="170" height="26" rx="13" fill="#FFF" opacity=".85"/>
+<rect x="470" y="530" width="60" height="70" fill="#FFF"/>
+<g stroke="#FFF" stroke-width="26" stroke-linecap="round"><line x1="500" y1="600" x2="360" y2="760"/><line x1="500" y1="600" x2="640" y2="760"/><line x1="500" y1="600" x2="500" y2="770"/></g>
+</svg>

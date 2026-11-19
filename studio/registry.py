@@ -81,6 +81,7 @@ class Tool:
     windows_pip_editable: bool = False
     about: str = ""              # one line on what the tool is for (shown when choosing one to install)
     needs: list = None            # short lines on what it takes: OS, accounts, downloads
+    icon: str = ""                # the tool's picture, relative to ui/ (shipped in the Studio: a tool not installed has no folder)
     state: str = READY
     message: str = ""
 
@@ -138,7 +139,8 @@ def load_tools(registry_path: Optional[str] = None, root: Optional[str] = None,
                  windows_run=list(raw.get("windows_run") or []),
                  windows_requirements=[str(r) for r in (raw.get("windows_requirements") or ["requirements.txt"])],
                  windows_pip_editable=bool(raw.get("windows_pip_editable", False)),
-                 about=str(raw.get("about") or ""), needs=[str(n) for n in (raw.get("needs") or [])])
+                 about=str(raw.get("about") or ""), needs=[str(n) for n in (raw.get("needs") or [])],
+                 icon=str(raw.get("icon") or ""))
         if platform_paths.os_name() not in t.platforms:
             t.state = UNSUPPORTED
             t.message = "%s is %s only for now." % (t.name, " and ".join(

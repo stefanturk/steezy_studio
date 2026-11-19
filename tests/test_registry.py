@@ -31,6 +31,12 @@ class Shipped(unittest.TestCase):
         for tool_id in REGISTRY_IDS:
             self.assertIn(tool_id, listed.split(), tool_id + " missing from install.sh --list")
 
+    def test_every_tool_has_an_icon_shipped_in_the_studio(self):
+        # The art ships inside the Studio: a tool that isn't installed has no folder to read it from.
+        for t in R.load_tools(root="/nonexistent"):
+            self.assertTrue(t.icon, t.id + " has no 'icon'")
+            self.assertTrue(os.path.isfile(os.path.join(HERE, "ui", t.icon)), t.id + ": ui/" + t.icon + " is missing")
+
     def test_readme_names_every_tool(self):
         with open(os.path.join(HERE, "README.md")) as f:
             head = f.read().lower().replace("_", " ")
@@ -52,6 +58,10 @@ class T(unittest.TestCase):
         self.assertEqual([t.id for t in tools], REGISTRY_IDS)
         self.assertTrue(len(tools) >= 4)
         self.assertTrue(all(t.state == R.NOT_INSTALLED for t in tools))
+
+    def test_icon_is_read_and_defaults_to_empty(self):
+        (a, b) = self.load({"tools": [dict(GOOD, icon="icons/a.svg"), dict(GOOD, id="b", folder="b")]})
+        self.assertEqual(a.icon, "icons/a.svg"); self.assertEqual(b.icon, "")
 
     def test_ready_when_git_checkout_present(self):
         os.makedirs(os.path.join(self.root, "a", ".git"))

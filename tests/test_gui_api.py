@@ -32,6 +32,9 @@ class T(unittest.TestCase):
         self.assertEqual([t["usable"] for t in tools], [False, False])
         self.assertIn("isn't on this computer", tools[0]["message"])
 
+    def test_tiles_carry_the_tool_icon(self):
+        self.assertEqual([t["icon"] for t in self.api.list_tools()], ["", ""])
+
     def test_only_tools_you_have_get_a_tile_the_rest_are_offered(self):
         self.assertEqual([t["shown"] for t in self.api.list_tools()], [False, False])
         self.repo("a")

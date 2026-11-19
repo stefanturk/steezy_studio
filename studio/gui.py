@@ -89,7 +89,7 @@ class Api:
                     "installing": self._installing == t.id,
                     "phase": self._phase if (self._installing == t.id or self._working_on == t.id) else "",
                     "updating": self._working_on == t.id, "waiting": t.id in self._queued,
-                    "openable": False, "about": t.about, "needs": list(t.needs or []),
+                    "openable": False, "about": t.about, "icon": t.icon, "needs": list(t.needs or []),
                     "private": t.private, "supported": t.state != registry.UNSUPPORTED}
             # The page shows a tile only for tools this computer has (or is getting, or that are
             # stuck and need a word). The rest are offered under "Get another Steezy app".
