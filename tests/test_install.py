@@ -101,3 +101,24 @@ def test_without_the_flag_nothing_is_remembered(world):
     home, env = world
     assert run(env).returncode == 0
     assert not (home / "state" / "songs_only").exists()
+
+
+def test_a_rerun_keeps_the_tools_folder_already_chosen(world):
+    # The header says "run it again to update"; that used to repoint tools_dir at ~/steezy_tools,
+    # and every tool installed elsewhere then showed "Install" again.
+    home, env = world
+    env = dict(env); env.pop("STEEZY_TOOLS_DIR")
+    elsewhere = home / "my tools"
+    (home / "state").mkdir(parents=True, exist_ok=True)
+    (home / "state" / "tools_dir").write_text(str(elsewhere) + "\n")
+    r = run(env, "beat_thief")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (home / "state" / "tools_dir").read_text().strip() == str(elsewhere)
+    assert (elsewhere / "beat_thief" / ".built").exists()
+
+
+def test_a_tool_id_is_matched_exactly_not_as_a_pattern(world):
+    home, env = world
+    r = run(env, "beat.thief")                       # a regex '.' used to match beat_thief
+    assert "Unknown tool 'beat.thief'" in r.stdout + r.stderr
+    assert not (home / "tools" / "beat_thief").exists()

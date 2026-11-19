@@ -42,6 +42,7 @@ ARCH="$("$PYTHON" -c 'import platform; print(platform.machine())')"
 . "$REPO/signing_keychain.sh"
 "$REPO/make_signing_identity.sh" >/dev/null
 open_signing_keychain
+trap close_signing_keychain EXIT          # locked again however the build ends
 IDENTITY="$(signing_identity)"
 if [ -z "$IDENTITY" ]; then
     echo "No signing identity found; run ./make_signing_identity.sh" >&2

@@ -24,9 +24,15 @@ set -uo pipefail
 
 STUDIO_URL="https://github.com/stefanturk/steezy_studio.git"
 DEST="${STEEZY_INSTALL_DEST:-$HOME/steezy_studio}"
-TOOLS="${STEEZY_TOOLS_DIR:-$HOME/steezy_tools}"
 ENGINE="${STEEZY_ENGINE_DIR:-$HOME/Library/Application Support/Steezy Studio/engine}"
 STATE="$(dirname "$ENGINE")"
+# Where tools go: the env var; else the folder an earlier run chose (a rerun must not move them, or
+# every tool shows "Install" again); else, with no file, the Studio's own default when this is a Mac
+# that already keeps its tools beside a steezy_studio clone in ~/Desktop/Python; else ~/steezy_tools.
+if [ -n "${STEEZY_TOOLS_DIR:-}" ]; then TOOLS="$STEEZY_TOOLS_DIR"
+elif [ -s "$STATE/tools_dir" ]; then TOOLS="$(head -n 1 "$STATE/tools_dir")"
+elif [ -d "$HOME/Desktop/Python/steezy_studio/.git" ]; then TOOLS="$HOME/Desktop/Python"
+else TOOLS="$HOME/steezy_tools"; fi
 GH_VERSION="2.103.3"
 # Apps go in the main /Applications folder when this account can write there
 # (any admin account can), else the one in the home folder.
@@ -195,7 +201,7 @@ if [ -n "$WANT" ]; then
     LINES="$(registry_lines)"
     [ "$WANT" = all ] && WANT="$(echo "$LINES" | cut -d'|' -f1 | tr '\n' ' ')"
     for id in $WANT; do
-        line="$(echo "$LINES" | grep "^$id|" | head -1)"
+        line="$(echo "$LINES" | awk -F'|' -v id="$id" '$1 == id { print; exit }')"   # exact, not a pattern
         if [ -z "$line" ]; then note "Unknown tool '$id' (try --list)."; FAILED="$FAILED $id"; continue; fi
         IFS='|' read -r tid folder repo priv build <<EOF2
 $line

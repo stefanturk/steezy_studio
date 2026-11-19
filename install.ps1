@@ -14,9 +14,13 @@ param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Tools)
 $ErrorActionPreference = 'Stop'
 $StudioUrl = 'https://github.com/stefanturk/steezy_studio.git'
 $Dest   = if ($env:STEEZY_INSTALL_DEST) { $env:STEEZY_INSTALL_DEST } else { Join-Path $env:USERPROFILE 'steezy_studio' }
-$ToolsDir = if ($env:STEEZY_TOOLS_DIR) { $env:STEEZY_TOOLS_DIR } else { Join-Path $env:USERPROFILE 'steezy_tools' }
 $Engine = if ($env:STEEZY_ENGINE_DIR) { $env:STEEZY_ENGINE_DIR } else { Join-Path $env:LOCALAPPDATA 'Steezy Studio\engine' }
 $State  = Split-Path $Engine -Parent
+# Where tools go: the env var; else the folder an earlier run chose (a rerun must not move them, or every
+# tool shows "Install" again); else ~/steezy_tools.
+$Chosen = Join-Path $State 'tools_dir'
+$Earlier = if (Test-Path $Chosen) { "$(Get-Content $Chosen -TotalCount 1)".Trim() } else { '' }
+$ToolsDir = if ($env:STEEZY_TOOLS_DIR) { $env:STEEZY_TOOLS_DIR } elseif ($Earlier) { $Earlier } else { Join-Path $env:USERPROFILE 'steezy_tools' }
 $Failed = @()
 
 function Say($m)  { Write-Host ""; Write-Host $m -ForegroundColor White }

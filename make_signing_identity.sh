@@ -9,7 +9,7 @@
 # same across rebuilds, so the permission is asked once.
 #
 # The certificate is not put in your login keychain. It gets a keychain of its
-# own, with a password written down in signing_keychain.sh, because codesign
+# own, with a random password made on this Mac (see signing_keychain.sh), because codesign
 # cannot use a key in the login keychain without a click-through dialog - which
 # a build script cannot answer. The key signs nothing but local Steezy Studio apps on this
 # machine; it is not an Apple Developer ID and vouches for nothing to anyone.
@@ -21,8 +21,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/signing_keychain.sh"
 
 if [ -f "$SIGNING_KEYCHAIN" ] && security find-certificate -c "$SIGNING_NAME" "$SIGNING_KEYCHAIN" >/dev/null 2>&1; then
-    echo "\"$SIGNING_NAME\" already exists in $SIGNING_KEYCHAIN."
-    exit 0
+    if _signing_unlock_any >/dev/null; then
+        security lock-keychain "$SIGNING_KEYCHAIN" 2>/dev/null || true
+        echo "\"$SIGNING_NAME\" already exists in $SIGNING_KEYCHAIN."
+        exit 0
+    fi
+    # Its password is lost (signing_password deleted): no build could ever sign again, so start over.
+    # The new certificate means macOS asks for Desktop access once more.
+    echo "Can't open $SIGNING_KEYCHAIN with any known password; making a new signing identity." >&2
 fi
 
 WORK="$(mktemp -d)"
@@ -48,14 +54,12 @@ CNF
 /usr/bin/openssl pkcs12 -export -inkey "$WORK/key.pem" -in "$WORK/cert.pem" \
     -out "$WORK/identity.p12" -passout pass:temp
 
-rm -f "$SIGNING_KEYCHAIN"
-security create-keychain -p "$SIGNING_PASSWORD" "$SIGNING_KEYCHAIN"
-# No auto-lock timeout: the keychain stays unlocked until the session ends.
-security set-keychain-settings "$SIGNING_KEYCHAIN"
-security unlock-keychain -p "$SIGNING_PASSWORD" "$SIGNING_KEYCHAIN"
+# A keychain of its own with a random password (see signing_keychain.sh); it locks after 10 minutes.
+create_signing_keychain
 security import "$WORK/identity.p12" -k "$SIGNING_KEYCHAIN" -P temp -T /usr/bin/codesign >/dev/null
 # Lets codesign use the key without a dialog.
-security set-key-partition-list -S apple-tool:,apple: -s -k "$SIGNING_PASSWORD" "$SIGNING_KEYCHAIN" >/dev/null
+security set-key-partition-list -S apple-tool:,apple: -s -k "$(signing_password)" "$SIGNING_KEYCHAIN" >/dev/null
 
 open_signing_keychain
+close_signing_keychain
 echo "Created \"$SIGNING_NAME\" in $SIGNING_KEYCHAIN"
