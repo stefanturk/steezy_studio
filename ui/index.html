@@ -88,6 +88,15 @@
   #fbbox textarea { min-height:120px; resize:vertical; }
   #fbmsg { font-size:12px; color:var(--good); min-height:16px; }
   #note { padding:0 24px 18px; color:var(--bad); font-size:13px; min-height:20px; }
+  /* The tiles are the part that scrolls (2026-11-19): the header (Share, Update all) stays at
+     the top and the note and feedback line at the bottom, instead of the feedback line being
+     cut off and a small window losing the header when it scrolled. Tiles a little tighter. */
+  header, #overallText, #overall, #note, #fbLink { flex:none; }
+  main { flex:1 1 auto; min-height:0; overflow-y:auto; align-content:start; padding:16px 24px; gap:12px; }
+  .tile { padding:14px 16px; gap:8px; }
+  #note { padding-bottom:8px; min-height:0; }
+  #note:empty { display:none; }
+  #fbLink { padding-top:8px; padding-bottom:12px; border-top:1px solid var(--edge); }
 </style>
 <header><img src="logo.svg" alt=""><div style="flex:1"><h1>Steezy Studio</h1><div class="label">Your tools, in one place</div></div><button id="shareBtn" class="ghost">Share with friends</button><button id="updateAll" hidden>Update all</button></header>
 <div id="overallText"></div>
