@@ -20,7 +20,7 @@ from studio import feedback, installer, invite, platform_paths, registry, share,
 
 UI_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "index.html")
 APP_NAME = "Steezy Studio"
-WINDOW_SIZE = (760, 640)
+WINDOW_SIZE = (760, 780)  # six tools with their update notes fit without scrolling; fits a 13-inch laptop
 APP_DIRS = ("/Applications", os.path.expanduser("~/Applications"))   # builds go to /Applications now; the old home one is still found
 
 
