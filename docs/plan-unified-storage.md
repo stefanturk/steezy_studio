@@ -4,6 +4,53 @@ First written 2026-11-20 in the video_streamer session. **Revision 2, same day, 
 code and the drive, then an interview with Stefan. Where this revision and older notes disagree, this revision wins.
 Older history: `~/.claude/plans/i-want-to-start-toasty-bentley.md` and the video_streamer memory `grand-storage-plan.md`.
 
+## Revision 4 (2026-11-22, steezy_studio): where the drive work ended up
+**Where this section and the rest of the doc disagree, this section wins.** The one-time drive work is done.
+- **Done:** the 2TB is mirrored to the Mac, every MXF is shrunk and its original deleted (each with Stefan's OK), and
+  the Final Cut libraries point at the 2TB files. To-do steps 1–3 and 5–7 below are finished.
+- **Dropped:** step 4 (the firmware update). The drive was bought in 2026 and SanDisk offers no update. Step 8 (resize
+  and "Shows") was already dropped in revision 3. The 2TB stays one partition, "2TB Storage" (HFS+) plus "2TB AUDIO".
+- **The Mac mirror is the Mac's backup of the 2TB:** `~/2TB Mirror/{2TB Storage,2TB AUDIO}`, 10,036 files, all
+  SHA-256 checked. Trim it later when the Mac needs room.
+- **Shrink rules changed (supersedes ruling 6 and the "SSIM gate around 0.99" line):** 60 Mbps for 4K24, passing at
+  mean SSIM 0.98 and every 3 s window at 0.97. **Every audio track is kept**, because Final Cut only relinks when the
+  channel counts match. The MXFs were shrunk to .mov with all 8 audio tracks (Litty D at 100 Mbps).
+- **Check records stay out of the show folders.** They live in `~/Library/Application Support/Show Mover/records/`.
+- **No more relinking:** Movie Maker builds from the 2TB files, so a Final Cut library is never relinked after a move.
+- **Cleanup still to do** (one at a time, each asks first):
+  - each show's multitrack goes in its own `<Show> Audio/` folder (Pabsy's 22 WAVs are still inside the Ableton
+    project's `Samples/Imported/`; Litty D Misco 4 has copies in both places);
+  - Litty D shows get no `Logos` folder (their logos live elsewhere), and Movie Maker's `ensure_show_folders` must
+    stop creating one for them.
+- **Known damage:** `2TB AUDIO/Multitrack/0006/LineR IPOD R_00.wav` lost its last 1.2 s (a bad FAT32 cluster chain).
+  The mirror holds the readable part.
+
+## Revision 3 (2026-11-21, video_streamer session): a dedicated PI RECORD drive replaces the "Shows" partition
+**Where this section and the rest of the doc disagree, this section wins.** Stefan's ruling: the 2TB keeps ALL final
+files including Final Cut libraries, stays Mac-format, and is NOT partitioned or shrunk. The Pi records to a separate drive.
+- **PI RECORD** is a new portable SSD (500GB, or 1TB if the price gap is small), exFAT, plugged into a blue USB 3 port.
+  It takes over the job of the "Shows" exFAT partition: the Pi's live recording target and the phones' upload target.
+  It also works standalone when the 2TB is somewhere else. Test sustained write speed (about 30 GB) before relying on it.
+- **Dropped:** the HFS+ resize step (to-do 8) and the "Shows" partition. The 2TB is never touched by the Pi.
+- **The Soundcraft's 500GB stick stays in the mixer** as the mixer's own audio backup.
+- **Destination order:** PI RECORD (found by label/UUID) -> a guest drive Stefan approved -> SD card (last resort).
+  The iPad names the drive in use and shows green/amber/red. It never switches quietly.
+- **Guest drives** (a customer's drive, with permission): a new drive shows on the iPad with name, format, free space and a
+  contents summary, and nothing is written. Stefan picks Use as is / Reformat to exFAT / Ignore. Reformat needs a typed
+  confirmation, a list of what will be erased and an owner-permission tick-box. Nothing is ever formatted automatically.
+- **Show Mover, one rule and two questions.** A Mac always writes the destination. Where are the files (PI RECORD plugged
+  into the Mac, or still on the Pi)? Where should they go (the 2TB, the Mac's own disk, or any other drive)? Plugged in is a
+  direct USB copy. Still on the Pi means the Pi sends over Wi-Fi/Ethernet to the Mac helper (`video_streamer/tools/mac_helper.py`,
+  already has resume and SHA-256; the Pi needs a Python sender that speaks the same protocol the phones use today).
+  If the 2TB is plugged into the Pi, the show waits on PI RECORD until a Mac is on the network. Delete from PI RECORD only
+  after the destination reports it verified.
+- **Unchanged:** the multitrack recorder (22 channels, 24-bit), the `.part`/fsync rules for exFAT, Quiet the rig, the
+  MXF shrink. All of "Recording safely to exFAT" now applies to PI RECORD instead of the Shows partition.
+- **Still to build** (none of it exists yet): drive detection by UUID/label with `nofail` mounts, automatic fallback, recorder
+  rollover for FAT32's 4GB limit, reopen after an unplug, read-only detection, guest-drive mode, Show Mover.
+- **Built 2026-11-21 (video_streamer branch `recording-method`, not pushed, nothing deployed):** manual-only collecting with prompts, PI RECORD / guest drive / SD handling with the iPad pill and guest-drive flow, recorder fixes, 32-channel multitrack recorder (+ stage_lighting branch `multitrack-tap`, VST2 on port 9411), Pi sender to the Mac helper, Mac app starting the helper and announcing itself, phone-hosted control room in the Android app (0.27). Show Mover's move/verify/delete is on branch `show-mover` of the separate `show_mover` repo. All unit-tested; none of it has run on the real Pi, rig or phones yet.
+- A picture of the whole method is the private artifact "Show Recording Method" (https://claude.ai/artifact/JXvYv4fS1XBgYgVwsoKnU7).
+
 ## The goal (Stefan's words)
 "I just start show, end show, and it's all there (eventually). All I have to do is plug the 2TB into my Mac and edit
 video right after the show." Keep it as simple as it is now.
