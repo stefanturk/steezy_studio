@@ -28,7 +28,7 @@ Older history: `~/.claude/plans/i-want-to-start-toasty-bentley.md` and the video
 ## Revision 3 (2026-11-21, video_streamer session): a dedicated PI RECORD drive replaces the "Shows" partition
 **Where this section and the rest of the doc disagree, this section wins.** Stefan's ruling: the 2TB keeps ALL final
 files including Final Cut libraries, stays Mac-format, and is NOT partitioned or shrunk. The Pi records to a separate drive.
-- **PI RECORD** is a new portable SSD (500GB, or 1TB if the price gap is small), exFAT, plugged into a blue USB 3 port.
+- **PI RECORD** is a new 1TB portable SSD (Stefan, 2026-11-22), exFAT, plugged into a blue USB 3 port.
   It takes over the job of the "Shows" exFAT partition: the Pi's live recording target and the phones' upload target.
   It also works standalone when the 2TB is somewhere else. Test sustained write speed (about 30 GB) before relying on it.
 - **Dropped:** the HFS+ resize step (to-do 8) and the "Shows" partition. The 2TB is never touched by the Pi.
