@@ -1,5 +1,11 @@
 # Show Collector: design
 
+> **Retired 2026-11-25 (Stefan), never used on a show night.** It repeated what Video Streamer's Files menu already shows and
+> carried a second set of delete rules that contradicted Stefan's. Now there is one Mac app: Video Streamer.app starts at login,
+> receives every set and files it as `<Band> Shows/<date> <Where>/` (video_streamer
+> `docs/superpowers/specs/2026-11-25-sets-named-by-band-one-mac-app-design.md`). Nothing of Show Collector was carried over
+> (Stefan dropped the drive copy too). Kept for the record only.
+
 Status: approved in conversation 2026-11-24, not yet built. Nothing deployed or pushed.
 
 ## Why

@@ -25,6 +25,15 @@ Older history: `~/.claude/plans/i-want-to-start-toasty-bentley.md` and the video
 - **Known damage:** `2TB AUDIO/Multitrack/0006/LineR IPOD R_00.wav` lost its last 1.2 s (a bad FAT32 cluster chain).
   The mirror holds the readable part.
 
+## Revision 4 (2026-11-25, video_streamer session): sets filed by band and venue; one Mac app
+**Where this section and the rest of the doc disagree, this section wins.**
+- Each set lands on the 2TB as `<Band> Shows/<YYYY-MM-DD> <Where>/` with `<set> Video/<camera>.mp4`, `<set> Audio/11 KICK.wav`
+  (USB channel + the desk's name) and `<set> Full Show (desk).wav` (USB 7+8). The Pi writes `show.json`; the Mac's filer
+  renames, moves and repackages `.ts` as `.mp4`. Checked against movie_maker's `discover_show_folder` and the Ableton loader.
+- Video Streamer.app is the only Mac app: it starts at login and receives and files every set. Show Collector is retired.
+- The Pi and phones clear a file once it is at its final place on the Mac (the 2TB or the Mac's own disk).
+- Full design: video_streamer `docs/superpowers/specs/2026-11-25-sets-named-by-band-one-mac-app-design.md`.
+
 ## Revision 3 (2026-11-21, video_streamer session): a dedicated PI RECORD drive replaces the "Shows" partition
 **Where this section and the rest of the doc disagree, this section wins.** Stefan's ruling: the 2TB keeps ALL final
 files including Final Cut libraries, stays Mac-format, and is NOT partitioned or shrunk. The Pi records to a separate drive.

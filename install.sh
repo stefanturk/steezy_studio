@@ -44,7 +44,7 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
 
 if [ "${1:-}" = "--list" ]; then
-    echo "beat_thief ableton_loader session_sync movie_maker stage_lighting video_streamer show_collector (or: all)"
+    echo "beat_thief ableton_loader session_sync movie_maker stage_lighting video_streamer (or: all)"
     exit 0
 fi
 
