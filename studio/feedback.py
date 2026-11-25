@@ -31,6 +31,7 @@ LOG_FILES = {
     "movie_maker": "movie_maker.log",
     "stage_lighting": "stage_lighting.log",
     "video_streamer": "video_streamer.log",
+    "show_collector": "show_collector.log",
     "steezy_studio": "steezy_studio.log",
 }
 

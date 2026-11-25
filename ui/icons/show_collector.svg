@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs>
+<linearGradient id="sheen" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#FFF" stop-opacity="0.16"/><stop offset="0.45" stop-color="#FFF" stop-opacity="0.03"/><stop offset="1" stop-color="#FFF" stop-opacity="0"/></linearGradient>
+</defs>
+<rect x="53" y="53" width="918" height="918" rx="200" fill="#0C0D10" stroke="#FFF" stroke-width="26"/>
+<g fill="none" stroke="#22232A"><rect x="119" y="119" width="786" height="786" rx="134" stroke-width="9"/><rect x="171" y="171" width="682" height="682" rx="82" stroke-width="5"/><rect x="223" y="223" width="578" height="578" rx="30" stroke-width="9"/><rect x="275" y="275" width="474" height="474" rx="30" stroke-width="5"/></g>
+<rect x="66" y="66" width="892" height="892" rx="187" fill="url(#sheen)"/>
+<!-- three phones send into one drive -->
+<g fill="#FFF"><rect x="260" y="240" width="108" height="178" rx="22"/><rect x="458" y="240" width="108" height="178" rx="22"/><rect x="656" y="240" width="108" height="178" rx="22"/></g>
+<g fill="#0C0D10"><rect x="274" y="258" width="80" height="128" rx="10"/><rect x="472" y="258" width="80" height="128" rx="10"/><rect x="670" y="258" width="80" height="128" rx="10"/></g>
+<g fill="#FF4D4D"><circle cx="314" cy="402" r="7"/><circle cx="512" cy="402" r="7"/><circle cx="710" cy="402" r="7"/></g>
+<g stroke="#FFF" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<path d="M314 448 L400 540"/><path d="M512 448 L512 540"/><path d="M710 448 L624 540"/>
+<path d="M470 506 L512 548 L554 506"/></g>
+<rect x="250" y="580" width="524" height="200" rx="40" fill="#8B5CF6" stroke="#FFF" stroke-width="18"/>
+<rect x="296" y="660" width="170" height="26" rx="13" fill="#FFF" opacity=".85"/><rect x="296" y="700" width="110" height="18" rx="9" fill="#FFF" opacity=".45"/>
+<circle cx="660" cy="680" r="56" fill="#2ECC71" stroke="#0C0D10" stroke-width="12"/>
+<path d="M633 681 L653 702 L690 658" fill="none" stroke="#FFF" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
